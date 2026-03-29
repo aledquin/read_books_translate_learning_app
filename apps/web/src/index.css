@@ -1,0 +1,247 @@
+﻿:root {
+  --bg: #faf8f3;
+  --fg: #1e1b16;
+  --muted: #5c574e;
+  --accent: #6b5a3e;
+  --card: #ffffffcc;
+  --border: #e2ddd4;
+}
+
+[data-theme='dark'] {
+  --bg: #121210;
+  --fg: #ece8df;
+  --muted: #a39e93;
+  --accent: #c9b896;
+  --card: #1e1c18cc;
+  --border: #2e2b26;
+}
+
+[data-theme='sepia'] {
+  --bg: #f4ecd8;
+  --fg: #2c2416;
+  --muted: #5e5342;
+  --accent: #6b4f2a;
+  --card: #fff9eccc;
+  --border: #e0d3b8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  background: var(--bg);
+  color: var(--fg);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+
+.app-shell {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.top-bar h1 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.btn {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.file-label {
+  cursor: pointer;
+}
+
+.file-label input {
+  display: none;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.list button {
+  width: 100%;
+  text-align: left;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.list .sub {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.reader-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 96px;
+}
+
+.reader-block {
+  margin: 0 0 1rem;
+  line-height: var(--reader-lh, 1.65);
+  font-size: var(--reader-fs, 19px);
+}
+
+.reader-block h1,
+.reader-block h2,
+.reader-block h3,
+.reader-block h4 {
+  font-family: inherit;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.chapter-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin: 2rem 0 0.75rem;
+}
+
+.chapter-label:first-child {
+  margin-top: 0;
+}
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  background: #0006;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 20;
+}
+
+.sheet-panel {
+  width: 100%;
+  max-width: 520px;
+  max-height: 70vh;
+  overflow: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  padding: 16px;
+}
+
+.sheet-panel h2 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.field label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.field input[type='range'] {
+  width: 100%;
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.progress-wrap {
+  margin: 12px 0;
+}
+
+.progress-bar {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.progress-bar > div {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+.word-pop {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  backdrop-filter: blur(8px);
+  z-index: 15;
+  font-size: 0.95rem;
+}
+
+.font-serif {
+  font-family: Georgia, 'Times New Roman', serif;
+}
+.font-sans {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+.font-readable {
+  font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+}

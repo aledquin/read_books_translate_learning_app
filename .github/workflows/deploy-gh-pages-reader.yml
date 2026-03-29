@@ -1,0 +1,46 @@
+# Builds apps/web with base /reader/ and pushes dist to aledquin/aledquin.github.io/reader/
+#
+# Setup:
+# 1. Create a fine-grained PAT (or classic PAT) with Contents: Read and write on repo aledquin/aledquin.github.io
+# 2. In THIS repo: Settings → Secrets → Actions → New secret GH_PAGES_TOKEN = that token
+# 3. If your Pages repo default branch is not `main`, change publish_branch below.
+
+name: Deploy reader to GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/deploy-gh-pages-reader.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install and build
+        working-directory: apps/web
+        env:
+          BASE_PATH: /reader/
+        run: |
+          npm install
+          npm run build
+
+      - name: Push to aledquin.github.io/reader/
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.GH_PAGES_TOKEN }}
+          external_repository: aledquin/aledquin.github.io
+          publish_branch: main
+          publish_dir: ./apps/web/dist
+          destination_dir: reader
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          commit_message: 'deploy: progressive reader (/reader/)'

@@ -1,0 +1,32 @@
+{
+  "name": "read-translate-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "build:gh-pages": "tsc && cross-env BASE_PATH=/reader/ vite build",
+    "preview": "vite preview",
+    "preview:gh-pages": "cross-env BASE_PATH=/reader/ vite preview"
+  },
+  "dependencies": {
+    "compromise": "^14.14.4",
+    "dompurify": "^3.2.4",
+    "epubjs": "^0.3.93",
+    "idb": "^8.0.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "@types/dompurify": "^3.2.0",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "~5.7.2",
+    "vite": "^6.2.0",
+    "vite-plugin-pwa": "^0.21.1"
+  }
+}
+
