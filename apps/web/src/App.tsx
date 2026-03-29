@@ -4,10 +4,14 @@ import * as db from './lib/db'
 import { loadUiSettings, saveUiSettings } from './lib/settingsStorage'
 import { runProgressiveBlend } from './lib/processBook'
 import type { BookRecord, ReaderSettings } from './types/book'
+import { publicUrl } from './lib/publicUrl'
 
 async function loadLexicon(pairId: string): Promise<Record<string, string>> {
-  const res = await fetch(`/lexicons/${pairId}.json`)
-  if (!res.ok) throw new Error(`Missing lexicon: ${pairId}.json`)
+  const res = await fetch(publicUrl(`lexicons/${pairId}.json`))
+  if (!res.ok)
+    throw new Error(
+      `Missing lexicon (${res.status}): ${publicUrl(`lexicons/${pairId}.json`)}`,
+    )
   return (await res.json()) as Record<string, string>
 }
 
@@ -32,6 +36,7 @@ export default function App() {
   const [progress, setProgress] = useState<{ c: number; t: number } | null>(null)
   const [selectionHint, setSelectionHint] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [blendWarning, setBlendWarning] = useState<string | null>(null)
 
   const refreshLibrary = useCallback(async () => {
     setBooks(await db.listBooks())
@@ -75,9 +80,14 @@ export default function App() {
       setBusy(true)
       setProgress({ c: 0, t: record.blocks.length })
       setError(null)
+      setBlendWarning(null)
       try {
         const lex = await loadLexicon(ui.pairId)
         if (cancelled) return
+        const keys = Object.keys(lex).length
+        if (keys === 0) {
+          throw new Error('Lexicon is empty — check lexicon JSON and deploy path.')
+        }
         const blended = await runProgressiveBlend(
           record.blocks.map((b) => b.html),
           record.blocks.map((b) => b.plain),
@@ -88,6 +98,7 @@ export default function App() {
           },
         )
         if (cancelled) return
+        const hasL2 = blended.some((h) => h.includes('lang="es"'))
         const next: BookRecord = {
           ...record,
           blendedHtml: blended,
@@ -95,6 +106,11 @@ export default function App() {
         }
         await db.saveBook(next)
         setRecord(next)
+        if (!hasL2 && blended.length > 0) {
+          setBlendWarning(
+            'No Spanish replacements were made: this book may not use words from the bundled lexicon (English lemmas in public/lexicons/en-es.json). Try another title or add words to the lexicon.',
+          )
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e))
       } finally {
