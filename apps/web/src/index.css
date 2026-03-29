@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --bg: #faf8f3;
   --fg: #1e1b16;
   --muted: #5c574e;
@@ -244,4 +244,23 @@ body {
 }
 .font-readable {
   font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+}
+
+/* Progressive L2: first occurrence vs later (worker injects spans) */
+.reader-block .pr-first-l2 {
+  border-bottom: 1px dotted var(--accent);
+  font-weight: 550;
+}
+
+.pr-legend {
+  font-size: 0.72rem;
+  margin: 0 0 10px;
+  opacity: 0.9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-block .pr-first-l2 {
+    border-bottom-style: solid;
+    border-bottom-width: 1px;
+  }
 }

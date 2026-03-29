@@ -1,5 +1,6 @@
-﻿import ePub from 'epubjs'
+import ePub from 'epubjs'
 import type { ContentBlock } from '../types/book'
+import { shouldSkipSpineSection } from './epubSkipSections'
 import { sanitizeChapterHtml } from './sanitize'
 
 export async function extractEpub(arrayBuffer: ArrayBuffer): Promise<{
@@ -7,7 +8,8 @@ export async function extractEpub(arrayBuffer: ArrayBuffer): Promise<{
   blocks: ContentBlock[]
 }> {
   const book = ePub(arrayBuffer)
-  await book.ready()
+  // epubjs: `ready` is a Promise, not a method (do not call `ready()`).
+  await book.ready
   const rawTitle = book.packaging?.metadata?.title
   const first = Array.isArray(rawTitle) ? rawTitle[0] : rawTitle
   const title =
@@ -15,17 +17,23 @@ export async function extractEpub(arrayBuffer: ArrayBuffer): Promise<{
 
   const blocks: ContentBlock[] = []
   let globalIndex = 0
+  let chapterSeq = 0
   const spine = book.spine
   const load = book.load.bind(book)
 
   for (let i = 0; i < spine.length; i++) {
     const item = spine.get(i)
+    if (!item) continue
+
+    if (shouldSkipSpineSection(item)) continue
+
     await item.load(load)
     const doc = item.document
     if (!doc?.body) continue
 
+    const chapterIndex = chapterSeq++
     const chapterTitle =
-      (item as { label?: string }).label?.trim() || `Section ${i + 1}`
+      (item as { label?: string }).label?.trim() || `Section ${chapterIndex + 1}`
 
     const candidates = doc.body.querySelectorAll(
       'p, h1, h2, h3, h4, blockquote, li',
@@ -36,7 +44,7 @@ export async function extractEpub(arrayBuffer: ArrayBuffer): Promise<{
       const p = plain.replace(/\s+/g, ' ').trim()
       if (!p) return
       blocks.push({
-        chapterIndex: i,
+        chapterIndex,
         chapterTitle,
         blockIndex,
         globalIndex: globalIndex++,

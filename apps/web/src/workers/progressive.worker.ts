@@ -1,4 +1,4 @@
-﻿/// <reference lib="webworker" />
+/// <reference lib="webworker" />
 
 import nlp from 'compromise'
 
@@ -114,17 +114,62 @@ function activeCountForParagraph(
   return Math.min(totalLemmas, Math.max(0, Math.ceil(totalLemmas * curved)))
 }
 
+function replaceTokensInTextNode(
+  textNode: Text,
+  doc: Document,
+  active: ReadonlySet<string>,
+  lexicon: Record<string, string>,
+  firstSeenLemma: Set<string>,
+): void {
+  const parent = textNode.parentNode
+  if (!parent) return
+  const text = textNode.data
+  const frag = doc.createDocumentFragment()
+  let lastIndex = 0
+  const re = /\b([a-zA-Z'-]+)\b/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    const fullWord = m[0]
+    const start = m.index
+    if (start > lastIndex) {
+      frag.appendChild(doc.createTextNode(text.slice(lastIndex, start)))
+    }
+    const d = nlp(fullWord)
+    const tags = normalizeTags(d.json()[0]?.terms?.[0]?.tags)
+    const key = lemmaKeyForSurface(fullWord, tags)
+    if (active.has(key) && lexicon[key]) {
+      const es = lexicon[key]!
+      const display = matchCase(fullWord, es)
+      const isFirst = !firstSeenLemma.has(key)
+      if (isFirst) firstSeenLemma.add(key)
+      const span = doc.createElement('span')
+      span.setAttribute('lang', 'es')
+      span.textContent = display
+      if (isFirst) span.className = 'pr-first-l2'
+      frag.appendChild(span)
+    } else {
+      frag.appendChild(doc.createTextNode(fullWord))
+    }
+    lastIndex = start + fullWord.length
+  }
+  if (lastIndex < text.length) {
+    frag.appendChild(doc.createTextNode(text.slice(lastIndex)))
+  }
+  parent.replaceChild(frag, textNode)
+}
+
 function blendHtmlBlock(
   html: string,
   active: ReadonlySet<string>,
   lexicon: Record<string, string>,
+  firstSeenLemma: Set<string>,
 ): string {
   const wrapped = `<div data-pr-root="1">${html}</div>`
-  const dom = new DOMParser().parseFromString(wrapped, 'text/html')
-  const root = dom.querySelector('[data-pr-root="1"]')
+  const doc = new DOMParser().parseFromString(wrapped, 'text/html')
+  const root = doc.querySelector('[data-pr-root="1"]')
   if (!root) return html
 
-  const walker = dom.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   const textNodes: Text[] = []
   let node: Node | null = walker.nextNode()
   while (node) {
@@ -133,17 +178,7 @@ function blendHtmlBlock(
   }
 
   for (const tn of textNodes) {
-    const orig = tn.data
-    const next = orig.replace(/\b([a-zA-Z'-]+)\b/g, (full) => {
-      const d = nlp(full)
-      const tags = normalizeTags(d.json()[0]?.terms?.[0]?.tags)
-      const key = lemmaKeyForSurface(full, tags)
-      if (!active.has(key)) return full
-      const es = lexicon[key]
-      if (!es) return full
-      return matchCase(full, es)
-    })
-    tn.data = next
+    replaceTokensInTextNode(tn, doc, active, lexicon, firstSeenLemma)
   }
 
   return root.innerHTML
@@ -163,9 +198,10 @@ function runProcess(msg: ProcessMessage): string[] {
     activeSets.push(new Set(ordered.slice(0, k)))
   }
 
+  const firstSeenLemma = new Set<string>()
   const out: string[] = []
   for (let p = 0; p < P; p++) {
-    out.push(blendHtmlBlock(htmlBlocks[p] ?? '', activeSets[p]!, lexicon))
+    out.push(blendHtmlBlock(htmlBlocks[p] ?? '', activeSets[p]!, lexicon, firstSeenLemma))
     const post: OutMsg = { type: 'progress', id: msg.id, current: p + 1, total: P }
     self.postMessage(post)
   }

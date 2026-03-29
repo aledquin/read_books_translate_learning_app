@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { extractEpub } from './lib/epubExtract'
 import * as db from './lib/db'
 import { loadUiSettings, saveUiSettings } from './lib/settingsStorage'
@@ -191,6 +191,11 @@ export default function App() {
                 />
               </div>
             </div>
+          ) : null}
+          {record.blendedHtml ? (
+            <p className="hint pr-legend">
+              Dotted underline: first time this word appears in the mixed language.
+            </p>
           ) : null}
           <article
             className={`reader-scroll ${fontClass(ui.fontFamily)}`}

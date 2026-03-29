@@ -1,4 +1,4 @@
-﻿declare module 'epubjs' {
+declare module 'epubjs' {
   interface SpineItem {
     load(fn: (url: string) => Promise<unknown>): Promise<void>
     document: Document | null
@@ -9,7 +9,8 @@
     get(index: number): SpineItem
   }
   interface EpubBook {
-    ready(): Promise<void>
+    /** Resolves when manifest, spine, metadata, etc. are loaded (Promise, not a function). */
+    ready: Promise<void>
     packaging: { metadata: { title?: string } }
     spine: Spine
     load(url: string): Promise<unknown>
