@@ -246,6 +246,11 @@ body {
   font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
 }
 
+/* All L2 tokens (first + later) — tint so they don’t look identical to English */
+.reader-block span[lang='es'] {
+  color: color-mix(in srgb, var(--accent) 72%, var(--fg));
+}
+
 /* Progressive L2: first occurrence vs later (worker injects spans) */
 .reader-block .pr-first-l2 {
   border-bottom: 2px dotted var(--accent);

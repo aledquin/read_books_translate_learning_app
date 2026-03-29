@@ -4,6 +4,7 @@ import * as db from './lib/db'
 import { loadUiSettings, saveUiSettings } from './lib/settingsStorage'
 import { runProgressiveBlend } from './lib/processBook'
 import type { BookRecord, ReaderSettings } from './types/book'
+import { CURRENT_BLEND_VERSION } from './lib/blendVersion'
 import { publicUrl } from './lib/publicUrl'
 
 async function loadLexicon(pairId: string): Promise<Record<string, string>> {
@@ -60,7 +61,13 @@ export default function App() {
     }
     let cancel = false
     void (async () => {
-      const r = await db.loadBook(activeId)
+      let r = await db.loadBook(activeId)
+      if (
+        r?.blendedHtml &&
+        r.blendVersion !== CURRENT_BLEND_VERSION
+      ) {
+        r = { ...r, blendedHtml: null }
+      }
       if (!cancel) setRecord(r ?? null)
       try {
         const lex = await loadLexicon(ui.pairId)
@@ -82,7 +89,12 @@ export default function App() {
   }, [activeId, ui.pairId])
 
   useEffect(() => {
-    if (!record || record.blendedHtml) return
+    if (!record) return
+    const blendUpToDate =
+      record.blendedHtml &&
+      record.blendedHtml.length === record.blocks.length &&
+      record.blendVersion === CURRENT_BLEND_VERSION
+    if (blendUpToDate) return
     let cancelled = false
     void (async () => {
       setBusy(true)
@@ -110,6 +122,7 @@ export default function App() {
         const next: BookRecord = {
           ...record,
           blendedHtml: blended,
+          blendVersion: CURRENT_BLEND_VERSION,
           settingsSnapshot: loadUiSettings(),
         }
         await db.saveBook(next)

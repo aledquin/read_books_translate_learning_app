@@ -1,4 +1,4 @@
-﻿export type ThemeId = 'light' | 'dark' | 'sepia'
+export type ThemeId = 'light' | 'dark' | 'sepia'
 
 export interface ReaderSettings {
   theme: ThemeId
@@ -34,5 +34,7 @@ export interface BookRecord {
   addedAt: number
   blocks: ContentBlock[]
   blendedHtml: string[] | null
+  /** Matches `CURRENT_BLEND_VERSION`; missing/older forces re-blend. */
+  blendVersion?: number
   settingsSnapshot: ReaderSettings
 }

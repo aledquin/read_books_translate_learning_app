@@ -14,6 +14,11 @@ npm run dev
 
 Open the URL Vite prints (usually `http://localhost:5173`). Use **Import EPUB** to add a book; the first open runs blending in a Web Worker and stores the result in **IndexedDB** for offline reading.
 
+## Sample EPUB for tests
+
+- **Path:** [`fixtures/epub/sterne-life-and-opinions-of-tristram-shandy-gentleman-illustrations.epub`](fixtures/epub/sterne-life-and-opinions-of-tristram-shandy-gentleman-illustrations.epub) (copy of a Project Gutenberg–style Sterne edition with illustrations).
+- **Automated checks:** from `apps/web`, run `npm test` — validates the sample EPUB ZIP + `mimetype` + OPF, and **asserts progressive Spanish blending** (`lang="es"`, `tiempo` / `vida`, `pr-first-l2`) in [`apps/web/src/lib/progressiveBlendCore.test.ts`](apps/web/src/lib/progressiveBlendCore.test.ts). Full `extractEpub` via epubjs remains a manual browser check.
+
 ## Customize
 
 - **Lexicon:** edit or replace [`apps/web/public/lexicons/en-es.json`](apps/web/public/lexicons/en-es.json) (lemma keys in English). Add more JSON files and extend `pairId` in [`apps/web/src/types/book.ts`](apps/web/src/types/book.ts) / settings when you add UI for other pairs.
