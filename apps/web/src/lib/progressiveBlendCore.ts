@@ -299,6 +299,63 @@ export function getReplacementWordList(
   }))
 }
 
+/** Document-order events when a lemma would first appear as L2 (matches blend schedule). */
+export type FirstSeenLemmaEvent = { paragraphIndex: number; lemma: string }
+
+/**
+ * Simulates the same first-seen progression as `blendProgressiveHtml` using plain text only
+ * (for deciding where sentence-level translation should start).
+ */
+export function firstSeenLemmaSchedule(
+  plainBlocks: string[],
+  lexicon: Record<string, string>,
+  paceGamma: number,
+  maxLearnWords: number,
+): FirstSeenLemmaEvent[] {
+  const P = plainBlocks.length
+  const freq = bookFreq(plainBlocks)
+  const scores = collectLemmaScores(plainBlocks, lexicon, freq)
+  const ordered = applyLearnCap(orderedLemmas(scores), maxLearnWords)
+  const L = ordered.length
+  const events: FirstSeenLemmaEvent[] = []
+  const firstSeen = new Set<string>()
+  const re = /\b([a-zA-Z'-]+)\b/g
+
+  for (let p = 0; p < P; p++) {
+    const plain = plainBlocks[p] ?? ''
+    const active = activeSetForParagraph(p, P, L, ordered, plain, lexicon, paceGamma)
+    re.lastIndex = 0
+    let m: RegExpExecArray | null
+    while ((m = re.exec(plain)) !== null) {
+      const fullWord = m[0]!
+      const d = nlp(fullWord)
+      const tags = normalizeTags(d.json()[0]?.terms?.[0]?.tags)
+      const key = resolveLexiconKey(fullWord, tags, lexicon)
+      if (key && active.has(key) && lexicon[key] && !firstSeen.has(key)) {
+        firstSeen.add(key)
+        events.push({ paragraphIndex: p, lemma: key })
+      }
+    }
+  }
+  return events
+}
+
+/**
+ * First paragraph index where full-sentence translation runs: the paragraph **after** the one
+ * where the Nth first-seen lemma occurs (1-based N).
+ *
+ * If the book has fewer first-seen events than N (small lexicon vs high N), uses the **last**
+ * event so sentence mode still runs for the tail instead of never turning on.
+ */
+export function startParagraphIndexAfterNthFirstSeen(
+  events: FirstSeenLemmaEvent[],
+  n: number,
+): number {
+  if (n <= 0 || events.length === 0) return Number.POSITIVE_INFINITY
+  const effectiveN = Math.min(n, events.length)
+  return events[effectiveN - 1]!.paragraphIndex + 1
+}
+
 /**
  * Run progressive blending over aligned HTML / plain blocks.
  */

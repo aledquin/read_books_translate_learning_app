@@ -465,6 +465,26 @@ body {
   opacity: 0.9;
 }
 
+.field-checkbox label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.field-checkbox input[type='checkbox'] {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+/* Full-sentence MT layer (MyMemory) */
+.reader-block .pr-sentence-mt {
+  line-height: var(--reader-lh, 1.65);
+  font-size: var(--reader-fs, 19px);
+  color: color-mix(in srgb, var(--accent) 55%, var(--fg));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reader-block .pr-first-l2 {
     border-bottom-style: solid;

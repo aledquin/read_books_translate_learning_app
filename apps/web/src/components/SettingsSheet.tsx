@@ -115,6 +115,55 @@ export function SettingsSheet({ draft, onChange, onApply, onCancel }: Props) {
             and re-blends open books when mix options changed.
           </div>
         </div>
+
+        {draft.pairId === 'en-es' ? (
+          <>
+            <div className="field field-checkbox">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={draft.sentenceTranslateEnabled}
+                  onChange={(e) => patch({ sentenceTranslateEnabled: e.target.checked })}
+                />{' '}
+                Sentence translation (free MyMemory API, EN→ES)
+              </label>
+              <div className="hint">
+                After enough word-level “first” lemmas, later paragraphs are replaced with full Spanish
+                sentences via the network. Requires internet; daily limits apply on the free tier.
+              </div>
+            </div>
+            <div className="field">
+              <label htmlFor="sent-after">Start sentences after lemma # (first-seen order)</label>
+              <input
+                id="sent-after"
+                type="number"
+                min={1}
+                max={5000}
+                step={1}
+                value={draft.sentenceTranslateAfterLemma}
+                disabled={!draft.sentenceTranslateEnabled}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10)
+                  if (!Number.isFinite(n)) return
+                  patch({
+                    sentenceTranslateAfterLemma: Math.max(1, Math.min(5000, n)),
+                  })
+                }}
+              />
+              <div className="hint">
+                Uses the same schedule as progressive blending: after the Nth first-seen lemma (or
+                after the last one if the book has fewer matches than N—small lexicon), following
+                paragraphs switch to full-sentence translation instead of word glosses.
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className="hint">
+            Sentence translation is only available for the EN→ES pair (current pair:{' '}
+            {draft.pairId}).
+          </p>
+        )}
+
         <div className="sheet-actions">
           <button type="button" className="btn btn-secondary" onClick={onCancel}>
             Cancel

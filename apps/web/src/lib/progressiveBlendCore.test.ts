@@ -7,12 +7,14 @@ import {
   blendProgressiveHtml,
   bookFreq,
   countScheduledLemmas,
+  firstSeenLemmaSchedule,
   getReplacementWordList,
   lexiconKeysInPlain,
   matchCase,
   normalizeTags,
   orderedLemmas,
   resolveLexiconKey,
+  startParagraphIndexAfterNthFirstSeen,
   tokenizeLower,
 } from './progressiveBlendCore'
 
@@ -205,6 +207,42 @@ describe('lexiconKeysInPlain', () => {
 
   it('returns empty when lexicon is empty', () => {
     expect(lexiconKeysInPlain('time flies', {}).size).toBe(0)
+  })
+})
+
+describe('firstSeenLemmaSchedule', () => {
+  it('orders first-seen lemmas in document order', () => {
+    const plain = ['time and life together.']
+    const ev = firstSeenLemmaSchedule(plain, miniLex, 1, 0)
+    const lemmas = ev.map((e) => e.lemma)
+    expect(lemmas).toContain('time')
+    expect(lemmas).toContain('life')
+    expect(lemmas.indexOf('time')).toBeLessThan(lemmas.indexOf('life'))
+  })
+
+  it('returns empty when lexicon does not overlap', () => {
+    expect(firstSeenLemmaSchedule(['hello'], miniLex, 1, 0)).toEqual([])
+  })
+})
+
+describe('startParagraphIndexAfterNthFirstSeen', () => {
+  it('uses last event when N is larger than schedule length (small lexicon)', () => {
+    expect(startParagraphIndexAfterNthFirstSeen([{ paragraphIndex: 0, lemma: 'a' }], 99)).toBe(1)
+  })
+
+  it('returns paragraph after the one containing the Nth event when N fits', () => {
+    const ev = [
+      { paragraphIndex: 0, lemma: 'a' },
+      { paragraphIndex: 1, lemma: 'b' },
+    ]
+    expect(startParagraphIndexAfterNthFirstSeen(ev, 2)).toBe(2)
+  })
+
+  it('returns Infinity for N <= 0 or no events', () => {
+    expect(startParagraphIndexAfterNthFirstSeen([], 1)).toBe(Number.POSITIVE_INFINITY)
+    expect(
+      startParagraphIndexAfterNthFirstSeen([{ paragraphIndex: 0, lemma: 'x' }], 0),
+    ).toBe(Number.POSITIVE_INFINITY)
   })
 })
 

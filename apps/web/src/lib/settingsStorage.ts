@@ -13,6 +13,13 @@ export function loadUiSettings(): ReaderSettings {
         ? Math.round(merged.learnWordCap)
         : defaultSettings.learnWordCap
     merged.learnWordCap = Math.max(1, Math.min(5000, cap))
+    merged.sentenceTranslateEnabled = Boolean(merged.sentenceTranslateEnabled)
+    const after =
+      typeof merged.sentenceTranslateAfterLemma === 'number' &&
+      Number.isFinite(merged.sentenceTranslateAfterLemma)
+        ? Math.round(merged.sentenceTranslateAfterLemma)
+        : defaultSettings.sentenceTranslateAfterLemma
+    merged.sentenceTranslateAfterLemma = Math.max(1, Math.min(5000, after))
     return merged
   } catch {
     return { ...defaultSettings }

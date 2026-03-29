@@ -17,10 +17,13 @@ import {
   NO_L2_BLEND_WARNING,
   snapshotForBook,
 } from './lib/bookBlend'
+import {
+  buildBlendedHtmlPipeline,
+  type BlendPhase,
+} from './lib/buildBlendedOutput'
 import { CURRENT_BLEND_VERSION } from './lib/blendVersion'
 import { extractEpub } from './lib/epubExtract'
 import { getReplacementWordList } from './lib/progressiveBlendCore'
-import { runProgressiveBlend } from './lib/processBook'
 import { applyTheme, readerFontClass } from './lib/readerUi'
 import { loadUiSettings, saveUiSettings } from './lib/settingsStorage'
 import type { BookRecord, ReaderSettings } from './types/book'
@@ -34,7 +37,11 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [draftUi, setDraftUi] = useState<ReaderSettings | null>(null)
   const [busy, setBusy] = useState(false)
-  const [progress, setProgress] = useState<{ c: number; t: number } | null>(null)
+  const [progress, setProgress] = useState<{
+    phase: BlendPhase
+    c: number
+    t: number
+  } | null>(null)
   const [selectionHint, setSelectionHint] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [blendWarning, setBlendWarning] = useState<string | null>(null)
@@ -120,7 +127,7 @@ export default function App() {
     let cancelled = false
     void (async () => {
       setBusy(true)
-      setProgress({ c: 0, t: record.blocks.length })
+      setProgress({ phase: 'blend', c: 0, t: record.blocks.length })
       setError(null)
       setBlendWarning(null)
       try {
@@ -128,14 +135,12 @@ export default function App() {
         if (cancelled) return
         assertLexiconNonEmpty(lex)
 
-        const blended = await runProgressiveBlend(
-          record.blocks.map((b) => b.html),
-          record.blocks.map((b) => b.plain),
+        const blended = await buildBlendedHtmlPipeline(
+          record.blocks,
           lex,
-          ui.paceGamma,
-          ui.learnWordCap,
-          (c, t) => {
-            if (!cancelled) setProgress({ c, t })
+          ui,
+          (phase, c, t) => {
+            if (!cancelled) setProgress({ phase, c, t })
           },
         )
         if (cancelled) return
@@ -163,14 +168,21 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [record, ui.pairId, ui.paceGamma, ui.learnWordCap])
+  }, [
+    record,
+    ui.pairId,
+    ui.paceGamma,
+    ui.learnWordCap,
+    ui.sentenceTranslateEnabled,
+    ui.sentenceTranslateAfterLemma,
+  ])
 
   const onPickFile = async (file: File | null) => {
     if (!file) return
     setError(null)
     setBlendWarning(null)
     setBusy(true)
-    setProgress({ c: 0, t: 1 })
+    setProgress({ phase: 'blend', c: 0, t: 1 })
     const id = crypto.randomUUID()
     let title = file.name.replace(/\.epub$/i, '')
     let blocks: BookRecord['blocks'] = []
@@ -182,18 +194,13 @@ export default function App() {
       }
       title = extracted.title
       blocks = extracted.blocks
-      setProgress({ c: 0, t: blocks.length })
+      setProgress({ phase: 'blend', c: 0, t: blocks.length })
 
       const lex = await loadLexicon(ui.pairId)
       assertLexiconNonEmpty(lex)
 
-      const blended = await runProgressiveBlend(
-        blocks.map((b) => b.html),
-        blocks.map((b) => b.plain),
-        lex,
-        ui.paceGamma,
-        ui.learnWordCap,
-        (c, t) => setProgress({ c, t }),
+      const blended = await buildBlendedHtmlPipeline(blocks, lex, ui, (phase, c, t) =>
+        setProgress({ phase, c, t }),
       )
 
       const rec: BookRecord = {
@@ -302,7 +309,11 @@ export default function App() {
 
       {busy && !showReader ? (
         <div className="import-progress">
-          <p className="hint">Extracting and blending…</p>
+          <p className="hint">
+            {progress?.phase === 'sentence'
+              ? 'Translating sentences (MyMemory free tier, internet required)…'
+              : 'Extracting and blending…'}
+          </p>
           {progress ? <ProgressBar current={progress.c} total={progress.t} /> : null}
         </div>
       ) : null}
@@ -312,7 +323,9 @@ export default function App() {
           <div className="reader-title-row">
             <div className="hint reader-title-hint">
               {record.title}
-              {busy ? ` — blending ${progress?.c ?? 0}/${progress?.t ?? '…'}` : null}
+              {busy
+                ? ` — ${progress?.phase === 'sentence' ? 'sentences' : 'blending'} ${progress?.c ?? 0}/${progress?.t ?? '…'}`
+                : null}
             </div>
             <button
               type="button"
@@ -353,6 +366,9 @@ export default function App() {
                     Dotted underline: first time that word appears in Spanish. Later in the book,
                     more of each paragraph shifts to Spanish; the last sections use your full word
                     list.
+                    {ui.sentenceTranslateEnabled && ui.pairId === 'en-es'
+                      ? ' After enough first-seen lemmas, later blocks may show full Spanish sentences (MyMemory).'
+                      : null}
                   </p>
                 ) : null}
                 <article
