@@ -1,14 +1,21 @@
 /**
  * Progressive L2 substitution (compromise + lexicon + schedule).
  * Shared by the Web Worker and Vitest (jsdom).
+ * HTML parsing uses linkedom so blending works in workers (no global DOMParser).
  */
 import nlp from 'compromise'
+import { parseHTML } from 'linkedom'
 
 export type ProgressiveBlendParams = {
   htmlBlocks: string[]
   plainBlocks: string[]
   lexicon: Record<string, string>
   paceGamma: number
+  /**
+   * Max lemmas from the priority list that may appear as L2 (in order).
+   * 0 = unlimited (use every lemma that appears in the book).
+   */
+  maxLearnWords: number
 }
 
 function normalizeTags(raw: unknown): string[] {
@@ -108,6 +115,12 @@ function orderedLemmas(scores: Map<string, number>): string[] {
   return [...scores.keys()].sort((a, b) => (scores.get(b) ?? 0) - (scores.get(a) ?? 0))
 }
 
+/**
+ * Last fraction of the book uses the full learnable lemma set so closing sections read
+ * mostly in Spanish (every glossary hit in the cap can appear as L2).
+ */
+const IMMERSION_TAIL_FRACTION = 0.22
+
 function activeCountForParagraph(
   p: number,
   totalParas: number,
@@ -116,6 +129,7 @@ function activeCountForParagraph(
 ): number {
   if (totalParas <= 0 || totalLemmas <= 0) return 0
   const t = (p + 1) / totalParas
+  if (t >= 1 - IMMERSION_TAIL_FRACTION) return totalLemmas
   const curved = Math.pow(t, paceGamma)
   return Math.min(totalLemmas, Math.max(0, Math.ceil(totalLemmas * curved)))
 }
@@ -207,6 +221,18 @@ function replaceTokensInTextNode(
   parent.replaceChild(frag, textNode)
 }
 
+function collectTextNodes(node: Node, out: Text[]): void {
+  const kids = node.childNodes
+  for (let i = 0; i < kids.length; i++) {
+    const child = kids[i]!
+    if (child.nodeType === 3) {
+      out.push(child as Text)
+    } else {
+      collectTextNodes(child, out)
+    }
+  }
+}
+
 export function blendHtmlBlock(
   html: string,
   active: ReadonlySet<string>,
@@ -214,17 +240,14 @@ export function blendHtmlBlock(
   firstSeenLemma: Set<string>,
 ): string {
   const wrapped = `<div data-pr-root="1">${html}</div>`
-  const doc = new DOMParser().parseFromString(wrapped, 'text/html')
+  const { document: doc } = parseHTML(
+    `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${wrapped}</body></html>`,
+  )
   const root = doc.querySelector('[data-pr-root="1"]')
   if (!root) return html
 
-  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   const textNodes: Text[] = []
-  let node: Node | null = walker.nextNode()
-  while (node) {
-    textNodes.push(node as Text)
-    node = walker.nextNode()
-  }
+  collectTextNodes(root, textNodes)
 
   for (const tn of textNodes) {
     replaceTokensInTextNode(tn, doc, active, lexicon, firstSeenLemma)
@@ -234,13 +257,38 @@ export function blendHtmlBlock(
 }
 
 /** How many distinct lexicon lemmas appear in the book (used for diagnostics/tests). */
+function applyLearnCap(ordered: string[], maxLearnWords: number): string[] {
+  if (maxLearnWords <= 0 || ordered.length <= maxLearnWords) return ordered
+  return ordered.slice(0, maxLearnWords)
+}
+
 export function countScheduledLemmas(
   plainBlocks: string[],
   lexicon: Record<string, string>,
+  maxLearnWords = 0,
 ): number {
   const freq = bookFreq(plainBlocks)
   const scores = collectLemmaScores(plainBlocks, lexicon, freq)
-  return scores.size
+  const ordered = applyLearnCap(orderedLemmas(scores), maxLearnWords)
+  return ordered.length
+}
+
+/** Ordered English lemmas that appear in the book and have a gloss (blend priority order). */
+export type ReplacementEntry = { en: string; es: string; rank: number }
+
+export function getReplacementWordList(
+  plainBlocks: string[],
+  lexicon: Record<string, string>,
+  maxLearnWords = 0,
+): ReplacementEntry[] {
+  const freq = bookFreq(plainBlocks)
+  const scores = collectLemmaScores(plainBlocks, lexicon, freq)
+  const ordered = applyLearnCap(orderedLemmas(scores), maxLearnWords)
+  return ordered.map((en, i) => ({
+    en,
+    es: lexicon[en] ?? '',
+    rank: i + 1,
+  }))
 }
 
 /**
@@ -250,11 +298,11 @@ export function blendProgressiveHtml(
   params: ProgressiveBlendParams,
   onProgress?: (current: number, total: number) => void,
 ): string[] {
-  const { htmlBlocks, plainBlocks, lexicon, paceGamma } = params
+  const { htmlBlocks, plainBlocks, lexicon, paceGamma, maxLearnWords } = params
   const P = plainBlocks.length
   const freq = bookFreq(plainBlocks)
   const scores = collectLemmaScores(plainBlocks, lexicon, freq)
-  const ordered = orderedLemmas(scores)
+  const ordered = applyLearnCap(orderedLemmas(scores), maxLearnWords)
   const L = ordered.length
 
   const activeSets: Set<string>[] = []

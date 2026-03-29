@@ -1,4 +1,4 @@
-﻿import type { ProcessMessage } from '../workers/progressive.worker'
+import type { ProcessMessage } from '../workers/progressive.worker'
 
 let seq = 1
 
@@ -7,6 +7,7 @@ export function runProgressiveBlend(
   plainBlocks: string[],
   lexicon: Record<string, string>,
   paceGamma: number,
+  maxLearnWords: number,
   onProgress: (current: number, total: number) => void,
 ): Promise<string[]> {
   return new Promise((resolve, reject) => {
@@ -41,6 +42,7 @@ export function runProgressiveBlend(
       plainBlocks,
       lexicon,
       paceGamma,
+      maxLearnWords,
     }
     worker.postMessage(msg)
   })

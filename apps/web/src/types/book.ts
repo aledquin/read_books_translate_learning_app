@@ -8,6 +8,8 @@ export interface ReaderSettings {
   /** >1 = gentler intro of L2; <1 = faster ramp */
   paceGamma: number
   pairId: string
+  /** Max distinct lemmas to mix in (priority order); 0 = no cap (all hits). */
+  learnWordCap: number
 }
 
 export const defaultSettings: ReaderSettings = {
@@ -17,6 +19,7 @@ export const defaultSettings: ReaderSettings = {
   fontFamily: 'serif',
   paceGamma: 1.35,
   pairId: 'en-es',
+  learnWordCap: 100,
 }
 
 export interface ContentBlock {
