@@ -55,6 +55,7 @@ export default function App() {
     if (!activeId) {
       setRecord(null)
       setLookupLex({})
+      setBlendWarning(null)
       return
     }
     let cancel = false
@@ -64,8 +65,15 @@ export default function App() {
       try {
         const lex = await loadLexicon(ui.pairId)
         if (!cancel) setLookupLex(lex)
-      } catch {
-        if (!cancel) setLookupLex({})
+      } catch (e) {
+        if (!cancel) {
+          setLookupLex({})
+          setError(
+            e instanceof Error
+              ? e.message
+              : 'Could not load lexicon (check URL base for GitHub Pages).',
+          )
+        }
       }
     })()
     return () => {
@@ -128,6 +136,7 @@ export default function App() {
   const onPickFile = async (file: File | null) => {
     if (!file) return
     setError(null)
+    setBlendWarning(null)
     setBusy(true)
     try {
       const buf = await file.arrayBuffer()
@@ -190,6 +199,7 @@ export default function App() {
       </header>
 
       {error ? <p className="hint">{error}</p> : null}
+      {blendWarning ? <p className="hint blend-warning">{blendWarning}</p> : null}
 
       {showReader ? (
         <>

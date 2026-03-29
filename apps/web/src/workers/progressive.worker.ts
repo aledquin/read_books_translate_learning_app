@@ -67,6 +67,19 @@ function lemmaKeyForSurface(surface: string, tags: string[]): string {
   return surface.toLowerCase()
 }
 
+/** Lexicon keys are lemmas; fall back to exact surface if compromise normal form differs. */
+function resolveLexiconKey(
+  surface: string,
+  tags: string[],
+  lexicon: Record<string, string>,
+): string | null {
+  const lemma = lemmaKeyForSurface(surface, tags)
+  if (lexicon[lemma]) return lemma
+  const raw = surface.toLowerCase()
+  if (lexicon[raw]) return raw
+  return null
+}
+
 function matchCase(source: string, translated: string): string {
   if (source.length === 0) return translated
   if (source === source.toUpperCase()) return translated.toUpperCase()
@@ -87,8 +100,8 @@ function collectLemmaScores(
       const tags = normalizeTags(term.tags)
       if (tags.includes('Pronoun') || tags.includes('Determiner')) continue
       const surface = term.text
-      const key = lemmaKeyForSurface(surface, tags)
-      if (!lexicon[key]) continue
+      const key = resolveLexiconKey(surface, tags, lexicon)
+      if (!key) continue
       const surf = surface.toLowerCase()
       const f = freq.get(surf) ?? 1
       const add = posWeight(tags) * Math.log(1 + f)
@@ -136,8 +149,8 @@ function replaceTokensInTextNode(
     }
     const d = nlp(fullWord)
     const tags = normalizeTags(d.json()[0]?.terms?.[0]?.tags)
-    const key = lemmaKeyForSurface(fullWord, tags)
-    if (active.has(key) && lexicon[key]) {
+    const key = resolveLexiconKey(fullWord, tags, lexicon)
+    if (key && active.has(key) && lexicon[key]) {
       const es = lexicon[key]!
       const display = matchCase(fullWord, es)
       const isFirst = !firstSeenLemma.has(key)

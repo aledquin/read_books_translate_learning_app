@@ -8,7 +8,9 @@
     "build": "tsc && vite build",
     "build:gh-pages": "tsc && cross-env BASE_PATH=/reader/ vite build",
     "preview": "vite preview",
-    "preview:gh-pages": "cross-env BASE_PATH=/reader/ vite preview"
+    "preview:gh-pages": "cross-env BASE_PATH=/reader/ vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "compromise": "^14.14.4",
@@ -26,6 +28,8 @@
     "cross-env": "^7.0.3",
     "typescript": "~5.7.2",
     "vite": "^6.2.0",
-    "vite-plugin-pwa": "^0.21.1"
+    "vite-plugin-pwa": "^0.21.1",
+    "vitest": "^3.0.9",
+    "jsdom": "^26.0.0"
   }
 }

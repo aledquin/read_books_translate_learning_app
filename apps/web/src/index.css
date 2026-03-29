@@ -248,8 +248,19 @@ body {
 
 /* Progressive L2: first occurrence vs later (worker injects spans) */
 .reader-block .pr-first-l2 {
-  border-bottom: 1px dotted var(--accent);
-  font-weight: 550;
+  border-bottom: 2px dotted var(--accent);
+  font-weight: 600;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  padding: 0 0.06em;
+  border-radius: 2px;
+}
+
+.blend-warning {
+  color: var(--muted);
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
 }
 
 .pr-legend {
