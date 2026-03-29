@@ -1,12 +1,19 @@
-// @vitest-environment jsdom
-
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
-  blendProgressiveHtml,
+  activeCountForParagraph,
+  activeSetForParagraph,
+  applyLearnCap,
   blendHtmlBlock,
+  blendProgressiveHtml,
+  bookFreq,
   countScheduledLemmas,
   getReplacementWordList,
+  lexiconKeysInPlain,
+  matchCase,
+  normalizeTags,
+  orderedLemmas,
   resolveLexiconKey,
+  tokenizeLower,
 } from './progressiveBlendCore'
 
 const miniLex: Record<string, string> = {
@@ -16,10 +23,204 @@ const miniLex: Record<string, string> = {
   day: 'día',
 }
 
+describe('normalizeTags', () => {
+  it('returns array tags as-is', () => {
+    expect(normalizeTags(['Noun', 'Singular'])).toEqual(['Noun', 'Singular'])
+  })
+
+  it('splits pipe-separated string tags', () => {
+    expect(normalizeTags('Noun|Singular')).toEqual(['Noun', 'Singular'])
+  })
+
+  it('trims and drops empty segments from string', () => {
+    expect(normalizeTags(' Noun |  | Verb ')).toEqual(['Noun', 'Verb'])
+  })
+
+  it('returns empty array for unsupported types (null, number, object)', () => {
+    expect(normalizeTags(null)).toEqual([])
+    expect(normalizeTags(undefined)).toEqual([])
+    expect(normalizeTags(42)).toEqual([])
+    expect(normalizeTags({})).toEqual([])
+  })
+
+  it('returns empty array for empty string', () => {
+    expect(normalizeTags('')).toEqual([])
+  })
+})
+
+describe('tokenizeLower', () => {
+  it('lowercases ASCII words', () => {
+    expect(tokenizeLower('Time and LIFE')).toEqual(['time', 'and', 'life'])
+  })
+
+  it('includes apostrophe and hyphen word chars', () => {
+    expect(tokenizeLower("don't well-known")).toEqual(["don't", 'well-known'])
+  })
+
+  it('returns empty array when no word tokens', () => {
+    expect(tokenizeLower('')).toEqual([])
+    expect(tokenizeLower('   ')).toEqual([])
+    expect(tokenizeLower('123 @#$')).toEqual([])
+  })
+
+  it('treats accented letters as non-word chars (splits tokens around them)', () => {
+    expect(tokenizeLower('café niño')).toEqual(['caf', 'ni', 'o'])
+  })
+})
+
+describe('bookFreq', () => {
+  it('aggregates counts across blocks', () => {
+    const m = bookFreq(['time time', 'time life'])
+    expect(m.get('time')).toBe(3)
+    expect(m.get('life')).toBe(1)
+  })
+
+  it('returns empty map for empty input', () => {
+    expect(bookFreq([]).size).toBe(0)
+    expect(bookFreq(['', '   ']).size).toBe(0)
+  })
+})
+
+describe('matchCase', () => {
+  it('returns gloss when source is empty', () => {
+    expect(matchCase('', 'hola')).toBe('hola')
+  })
+
+  it('uppercases gloss when source is all caps', () => {
+    expect(matchCase('TIME', 'tiempo')).toBe('TIEMPO')
+  })
+
+  it('title-cases gloss when source starts with capital', () => {
+    expect(matchCase('Time', 'tiempo')).toBe('Tiempo')
+  })
+
+  it('leaves gloss lower when source is lower', () => {
+    expect(matchCase('time', 'tiempo')).toBe('tiempo')
+  })
+})
+
+describe('orderedLemmas', () => {
+  it('sorts by descending score', () => {
+    const scores = new Map([
+      ['a', 1],
+      ['b', 9],
+      ['c', 3],
+    ])
+    expect(orderedLemmas(scores)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('handles empty map', () => {
+    expect(orderedLemmas(new Map())).toEqual([])
+  })
+
+  it('stable tie-break is by sort order of keys (implementation detail)', () => {
+    const scores = new Map([
+      ['m', 1],
+      ['z', 1],
+      ['a', 1],
+    ])
+    const out = orderedLemmas(scores)
+    expect(out).toHaveLength(3)
+    expect(new Set(out)).toEqual(new Set(['a', 'm', 'z']))
+  })
+})
+
+describe('applyLearnCap', () => {
+  it('returns full list when maxLearnWords is 0', () => {
+    const o = ['a', 'b', 'c']
+    expect(applyLearnCap(o, 0)).toEqual(o)
+  })
+
+  it('returns full list when maxLearnWords is negative', () => {
+    const o = ['a', 'b']
+    expect(applyLearnCap(o, -1)).toEqual(o)
+  })
+
+  it('slices when cap is smaller than length', () => {
+    expect(applyLearnCap(['a', 'b', 'c'], 2)).toEqual(['a', 'b'])
+  })
+
+  it('returns unchanged when cap >= length', () => {
+    const o = ['a', 'b']
+    expect(applyLearnCap(o, 10)).toEqual(o)
+  })
+})
+
+describe('activeCountForParagraph', () => {
+  it('returns 0 when totalParas or totalLemmas is 0', () => {
+    expect(activeCountForParagraph(0, 0, 10, 1)).toBe(0)
+    expect(activeCountForParagraph(0, 5, 0, 1)).toBe(0)
+    expect(activeCountForParagraph(0, -1, 10, 1)).toBe(0)
+  })
+
+  it('uses full lemma count in immersion tail', () => {
+    const P = 50
+    const L = 100
+    const pTail = Math.ceil(P * (1 - 0.22)) - 1
+    expect(activeCountForParagraph(pTail, P, L, 2)).toBe(L)
+  })
+
+  it('uses power curve before tail', () => {
+    expect(activeCountForParagraph(0, 100, 100, 1)).toBe(1)
+    expect(activeCountForParagraph(49, 100, 100, 1)).toBe(50)
+  })
+
+  it('single-paragraph book is entirely in tail (full L)', () => {
+    expect(activeCountForParagraph(0, 1, 40, 2)).toBe(40)
+  })
+})
+
+describe('activeSetForParagraph', () => {
+  const ordered = ['time', 'life', 'night']
+
+  it('returns empty set when L is 0', () => {
+    expect(
+      activeSetForParagraph(0, 5, 0, ordered, 'time flies', miniLex, 1).size,
+    ).toBe(0)
+  })
+
+  it('widens until at least one in-paragraph lemma is active', () => {
+    const plain = 'only life here'
+    const s = activeSetForParagraph(0, 20, 3, ordered, plain, miniLex, 3)
+    expect(s.has('life')).toBe(true)
+    expect(s.size).toBeGreaterThanOrEqual(1)
+  })
+
+  it('returns empty when paragraph has no lexicon hits', () => {
+    const s = activeSetForParagraph(0, 10, 3, ordered, 'hello world', miniLex, 1)
+    expect(s.size).toBe(0)
+  })
+})
+
+describe('lexiconKeysInPlain', () => {
+  it('collects keys for words in lexicon', () => {
+    const s = lexiconKeysInPlain('time and life', miniLex)
+    expect(s.has('time')).toBe(true)
+    expect(s.has('life')).toBe(true)
+  })
+
+  it('returns empty set for empty string', () => {
+    expect(lexiconKeysInPlain('', miniLex).size).toBe(0)
+  })
+
+  it('returns empty when lexicon is empty', () => {
+    expect(lexiconKeysInPlain('time flies', {}).size).toBe(0)
+  })
+})
+
 describe('resolveLexiconKey', () => {
   it('maps surface to lexicon entry', () => {
     expect(resolveLexiconKey('time', ['Noun'], miniLex)).toBe('time')
     expect(resolveLexiconKey('Time', ['Noun'], miniLex)).toBe('time')
+  })
+
+  it('returns null when lemma not in lexicon', () => {
+    expect(resolveLexiconKey('unknown', ['Noun'], miniLex)).toBe(null)
+    expect(resolveLexiconKey('xyz', [], miniLex)).toBe(null)
+  })
+
+  it('returns null for empty lexicon', () => {
+    expect(resolveLexiconKey('time', ['Noun'], {})).toBe(null)
   })
 })
 
@@ -35,6 +236,16 @@ describe('countScheduledLemmas', () => {
   it('is zero when lexicon has no overlap', () => {
     expect(countScheduledLemmas(['The quick brown fox.'], miniLex)).toBe(0)
   })
+
+  it('is zero for empty blocks', () => {
+    expect(countScheduledLemmas([], miniLex)).toBe(0)
+  })
+
+  it('respects positive learn cap', () => {
+    expect(
+      countScheduledLemmas(['time life night day'], miniLex, 2),
+    ).toBe(2)
+  })
 })
 
 describe('getReplacementWordList', () => {
@@ -44,10 +255,9 @@ describe('getReplacementWordList', () => {
     expect(new Set(rows.map((r) => r.en))).toEqual(
       new Set(['time', 'life', 'night', 'day']),
     )
-    // "time" scores higher (two hits) and should sort first when scores differ.
     expect(rows[0]?.en).toBe('time')
     expect(rows[0]).toMatchObject({ es: 'tiempo', rank: 1 })
-    expect(rows.map((r, i) => r.rank)).toEqual([1, 2, 3, 4])
+    expect(rows.map((r) => r.rank)).toEqual([1, 2, 3, 4])
   })
 
   it('respects maxLearnWords cap', () => {
@@ -55,11 +265,65 @@ describe('getReplacementWordList', () => {
     expect(rows).toHaveLength(2)
     expect(rows[0]?.en).toBe('time')
   })
+
+  it('returns empty for empty blocks', () => {
+    expect(getReplacementWordList([], miniLex, 0)).toEqual([])
+  })
+
+  it('assigns rank starting at 1', () => {
+    const rows = getReplacementWordList(['cat'], { cat: 'gato' }, 0)
+    expect(rows[0]?.rank).toBe(1)
+  })
+})
+
+describe('blendHtmlBlock', () => {
+  it('replaces inside simple HTML', () => {
+    const active = new Set<string>(['time', 'life'])
+    const first = new Set<string>()
+    const html = blendHtmlBlock('<p>time and life</p>', active, miniLex, first)
+    expect(html).toContain('tiempo')
+    expect(html).toContain('vida')
+  })
+
+  it('returns empty inner html for empty fragment input', () => {
+    expect(blendHtmlBlock('', new Set(), miniLex, new Set())).toBe('')
+  })
+
+  it('does not replace when active set excludes lemma', () => {
+    const html = blendHtmlBlock(
+      '<p>time only</p>',
+      new Set<string>(),
+      miniLex,
+      new Set(),
+    )
+    expect(html).not.toContain('tiempo')
+    expect(html).toContain('time')
+  })
+
+  it('walks nested text nodes', () => {
+    const html = blendHtmlBlock(
+      '<p>a <span>time</span> b</p>',
+      new Set(['time']),
+      miniLex,
+      new Set(),
+    )
+    expect(html).toContain('tiempo')
+  })
+
+  it('leaves unknown words unchanged', () => {
+    const html = blendHtmlBlock(
+      '<p>time xyz</p>',
+      new Set(['time', 'xyz']),
+      { time: 'tiempo' },
+      new Set(),
+    )
+    expect(html).toContain('tiempo')
+    expect(html).toContain('xyz')
+  })
 })
 
 describe('blendProgressiveHtml', () => {
   it('inserts Spanish spans with lang="es" when lemmas are active', () => {
-    // One paragraph so every scheduled lemma is active (t = 1).
     const htmlBlocks = ['<p>time and life together.</p>']
     const plainBlocks = ['time and life together.']
     const out = blendProgressiveHtml({
@@ -105,12 +369,63 @@ describe('blendProgressiveHtml', () => {
     expect(out[0]).not.toMatch(/lang="es"/)
   })
 
+  it('returns empty array when there are no blocks', () => {
+    const out = blendProgressiveHtml({
+      htmlBlocks: [],
+      plainBlocks: [],
+      lexicon: miniLex,
+      paceGamma: 1,
+      maxLearnWords: 0,
+    })
+    expect(out).toEqual([])
+  })
+
+  it('produces no L2 when html block is empty (no text nodes) even if plain has words', () => {
+    const out = blendProgressiveHtml({
+      htmlBlocks: [''],
+      plainBlocks: ['time.'],
+      lexicon: { time: 'tiempo' },
+      paceGamma: 1,
+      maxLearnWords: 0,
+    })
+    expect(out).toHaveLength(1)
+    expect(out[0]).toBe('')
+    expect(out[0]).not.toMatch(/lang="es"/)
+  })
+
+  it('only emits one output per plain block (extra html entries unused)', () => {
+    const out = blendProgressiveHtml({
+      htmlBlocks: ['<p>time and life</p>', '<p>ignored</p>'],
+      plainBlocks: ['time and life together.'],
+      lexicon: miniLex,
+      paceGamma: 1,
+      maxLearnWords: 0,
+    })
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatch(/tiempo/)
+  })
+
+  it('calls onProgress for each block', () => {
+    const fn = vi.fn()
+    blendProgressiveHtml(
+      {
+        htmlBlocks: ['<p>a</p>', '<p>b</p>'],
+        plainBlocks: ['a.', 'b.'],
+        lexicon: {},
+        paceGamma: 1,
+        maxLearnWords: 0,
+      },
+      fn,
+    )
+    expect(fn).toHaveBeenCalledTimes(2)
+    expect(fn).toHaveBeenLastCalledWith(2, 2)
+  })
+
   it('still translates across many blocks (schedule adds lemmas over the book)', () => {
     const blocks = Array.from({ length: 8 }, (_, i) => ({
       html: `<p>Block ${i}: time and life and night.</p>`,
       plain: `Block ${i}: time and life and night.`,
     }))
-    // Lower gamma = steeper early ramp so more lemmas become active sooner.
     const out = blendProgressiveHtml({
       htmlBlocks: blocks.map((b) => b.html),
       plainBlocks: blocks.map((b) => b.plain),
@@ -122,7 +437,6 @@ describe('blendProgressiveHtml', () => {
     expect(joined).toMatch(/lang="es"/)
     expect(joined).toMatch(/tiempo/i)
     expect(joined).toMatch(/vida/i)
-    // Third lemma ("night") may stay English until late in the schedule with few blocks.
   })
 
   it('fills in Spanish for all learnable lemmas in the immersion tail (late book)', () => {
@@ -160,20 +474,5 @@ describe('blendProgressiveHtml', () => {
       Boolean,
     ).length
     expect(l2Hits).toBe(1)
-  })
-})
-
-describe('blendHtmlBlock', () => {
-  it('replaces inside simple HTML', () => {
-    const active = new Set<string>(['time', 'life'])
-    const first = new Set<string>()
-    const html = blendHtmlBlock(
-      '<p>time and life</p>',
-      active,
-      miniLex,
-      first,
-    )
-    expect(html).toContain('tiempo')
-    expect(html).toContain('vida')
   })
 })

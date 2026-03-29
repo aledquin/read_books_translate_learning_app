@@ -18,7 +18,8 @@ export type ProgressiveBlendParams = {
   maxLearnWords: number
 }
 
-function normalizeTags(raw: unknown): string[] {
+/** Normalizes compromise tag payloads (string, pipe-list, or array). Exported for tests. */
+export function normalizeTags(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw as string[]
   if (typeof raw === 'string')
     return raw
@@ -28,12 +29,14 @@ function normalizeTags(raw: unknown): string[] {
   return []
 }
 
-function tokenizeLower(s: string): string[] {
+/** Word tokens for frequency counting (Latin letters, apostrophe, hyphen). Exported for tests. */
+export function tokenizeLower(s: string): string[] {
   const m = s.match(/\b[a-zA-Z'-]+\b/g)
   return m ? m.map((w) => w.toLowerCase()) : []
 }
 
-function bookFreq(blocks: string[]): Map<string, number> {
+/** Per-surface-token counts across plain blocks. Exported for tests. */
+export function bookFreq(blocks: string[]): Map<string, number> {
   const m = new Map<string, number>()
   for (const t of blocks) {
     for (const w of tokenizeLower(t)) {
@@ -80,7 +83,8 @@ export function resolveLexiconKey(
   return null
 }
 
-function matchCase(source: string, translated: string): string {
+/** Mirrors surface casing onto the Spanish gloss. Exported for tests. */
+export function matchCase(source: string, translated: string): string {
   if (source.length === 0) return translated
   if (source === source.toUpperCase()) return translated.toUpperCase()
   if (source[0] === source[0].toUpperCase())
@@ -111,7 +115,8 @@ function collectLemmaScores(
   return scores
 }
 
-function orderedLemmas(scores: Map<string, number>): string[] {
+/** Sorts lemma keys by descending score. Exported for tests. */
+export function orderedLemmas(scores: Map<string, number>): string[] {
   return [...scores.keys()].sort((a, b) => (scores.get(b) ?? 0) - (scores.get(a) ?? 0))
 }
 
@@ -121,7 +126,8 @@ function orderedLemmas(scores: Map<string, number>): string[] {
  */
 const IMMERSION_TAIL_FRACTION = 0.22
 
-function activeCountForParagraph(
+/** How many top-priority lemmas are “unlocked” at paragraph index p. Exported for tests. */
+export function activeCountForParagraph(
   p: number,
   totalParas: number,
   totalLemmas: number,
@@ -155,7 +161,8 @@ export function lexiconKeysInPlain(
  * curriculum (ordered slice) with words actually present, widening the slice
  * until at least one local hit exists so early chapters are not stuck on English.
  */
-function activeSetForParagraph(
+/** Active lemmas for one paragraph given curriculum order and pace. Exported for tests. */
+export function activeSetForParagraph(
   p: number,
   P: number,
   L: number,
@@ -256,12 +263,13 @@ export function blendHtmlBlock(
   return root.innerHTML
 }
 
-/** How many distinct lexicon lemmas appear in the book (used for diagnostics/tests). */
-function applyLearnCap(ordered: string[], maxLearnWords: number): string[] {
+/** Truncates ordered lemmas to the learn cap (0 = no cap). Exported for tests. */
+export function applyLearnCap(ordered: string[], maxLearnWords: number): string[] {
   if (maxLearnWords <= 0 || ordered.length <= maxLearnWords) return ordered
   return ordered.slice(0, maxLearnWords)
 }
 
+/** How many distinct lexicon lemmas appear in the book (after learn cap). */
 export function countScheduledLemmas(
   plainBlocks: string[],
   lexicon: Record<string, string>,

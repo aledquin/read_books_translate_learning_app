@@ -10,6 +10,12 @@ export interface ReaderSettings {
   pairId: string
   /** Max distinct lemmas to mix in (priority order); 0 = no cap (all hits). */
   learnWordCap: number
+  /**
+   * After the Nth lexicon lemma’s first Spanish occurrence (document order), following
+   * paragraphs use free-tier MyMemory EN→ES sentence translation (when on and pair is en-es).
+   */
+  sentenceTranslateEnabled: boolean
+  sentenceTranslateAfterLemma: number
 }
 
 export const defaultSettings: ReaderSettings = {
@@ -20,6 +26,8 @@ export const defaultSettings: ReaderSettings = {
   paceGamma: 1.35,
   pairId: 'en-es',
   learnWordCap: 100,
+  sentenceTranslateEnabled: false,
+  sentenceTranslateAfterLemma: 25,
 }
 
 export interface ContentBlock {

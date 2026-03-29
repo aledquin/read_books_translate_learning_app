@@ -5,47 +5,25 @@ import {
   useState,
   type CSSProperties,
 } from 'react'
-import { extractEpub } from './lib/epubExtract'
+import { SettingsSheet } from './components/SettingsSheet'
+import { ProgressBar } from './components/ProgressBar'
 import * as db from './lib/db'
-import { loadUiSettings, saveUiSettings } from './lib/settingsStorage'
-import { runProgressiveBlend } from './lib/processBook'
-import type { BookRecord, ReaderSettings } from './types/book'
+import {
+  assertLexiconNonEmpty,
+  blendedOutputHasL2,
+  isBlendUpToDate,
+  LEXICON_LOAD_ERROR_HINT,
+  loadLexicon,
+  NO_L2_BLEND_WARNING,
+  snapshotForBook,
+} from './lib/bookBlend'
 import { CURRENT_BLEND_VERSION } from './lib/blendVersion'
-import { publicUrl } from './lib/publicUrl'
+import { extractEpub } from './lib/epubExtract'
 import { getReplacementWordList } from './lib/progressiveBlendCore'
-
-function blendSettingsMatch(rec: BookRecord, ui: ReaderSettings): boolean {
-  const snap = rec.settingsSnapshot
-  const snapCap = snap.learnWordCap ?? 100
-  return (
-    snap.pairId === ui.pairId &&
-    snap.paceGamma === ui.paceGamma &&
-    snapCap === ui.learnWordCap
-  )
-}
-
-function snapshotForBook(ui: ReaderSettings): ReaderSettings {
-  return { ...ui }
-}
-
-async function loadLexicon(pairId: string): Promise<Record<string, string>> {
-  const res = await fetch(publicUrl(`lexicons/${pairId}.json`))
-  if (!res.ok)
-    throw new Error(
-      `Missing lexicon (${res.status}): ${publicUrl(`lexicons/${pairId}.json`)}`,
-    )
-  return (await res.json()) as Record<string, string>
-}
-
-function applyTheme(theme: ReaderSettings['theme']) {
-  document.documentElement.dataset.theme = theme
-}
-
-function fontClass(f: ReaderSettings['fontFamily']) {
-  if (f === 'sans') return 'font-sans'
-  if (f === 'readable') return 'font-readable'
-  return 'font-serif'
-}
+import { runProgressiveBlend } from './lib/processBook'
+import { applyTheme, readerFontClass } from './lib/readerUi'
+import { loadUiSettings, saveUiSettings } from './lib/settingsStorage'
+import type { BookRecord, ReaderSettings } from './types/book'
 
 export default function App() {
   const [ui, setUi] = useState<ReaderSettings>(() => loadUiSettings())
@@ -116,10 +94,7 @@ export default function App() {
     let cancel = false
     void (async () => {
       let r = await db.loadBook(activeId)
-      if (
-        r?.blendedHtml &&
-        r.blendVersion !== CURRENT_BLEND_VERSION
-      ) {
+      if (r?.blendedHtml && r.blendVersion !== CURRENT_BLEND_VERSION) {
         r = { ...r, blendedHtml: null }
       }
       if (!cancel) setRecord(r ?? null)
@@ -129,11 +104,7 @@ export default function App() {
       } catch (e) {
         if (!cancel) {
           setLookupLex({})
-          setError(
-            e instanceof Error
-              ? e.message
-              : 'Could not load lexicon (check URL base for GitHub Pages).',
-          )
+          setError(e instanceof Error ? e.message : LEXICON_LOAD_ERROR_HINT)
         }
       }
     })()
@@ -144,12 +115,8 @@ export default function App() {
 
   useEffect(() => {
     if (!record) return
-    const blendUpToDate =
-      !!record.blendedHtml &&
-      record.blendedHtml.length === record.blocks.length &&
-      record.blendVersion === CURRENT_BLEND_VERSION &&
-      blendSettingsMatch(record, ui)
-    if (blendUpToDate) return
+    if (isBlendUpToDate(record, ui, CURRENT_BLEND_VERSION)) return
+
     let cancelled = false
     void (async () => {
       setBusy(true)
@@ -159,10 +126,8 @@ export default function App() {
       try {
         const lex = await loadLexicon(ui.pairId)
         if (cancelled) return
-        const keys = Object.keys(lex).length
-        if (keys === 0) {
-          throw new Error('Lexicon is empty — check lexicon JSON and deploy path.')
-        }
+        assertLexiconNonEmpty(lex)
+
         const blended = await runProgressiveBlend(
           record.blocks.map((b) => b.html),
           record.blocks.map((b) => b.plain),
@@ -174,7 +139,7 @@ export default function App() {
           },
         )
         if (cancelled) return
-        const hasL2 = blended.some((h) => h.includes('lang="es"'))
+
         const next: BookRecord = {
           ...record,
           blendedHtml: blended,
@@ -183,10 +148,8 @@ export default function App() {
         }
         await db.saveBook(next)
         setRecord(next)
-        if (!hasL2 && blended.length > 0) {
-          setBlendWarning(
-            'No Spanish replacements were made: this book may not use words from the bundled lexicon (English lemmas in public/lexicons/en-es.json). Try another title or add words to the lexicon.',
-          )
+        if (!blendedOutputHasL2(blended) && blended.length > 0) {
+          setBlendWarning(NO_L2_BLEND_WARNING)
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e))
@@ -214,17 +177,15 @@ export default function App() {
     try {
       const buf = await file.arrayBuffer()
       const extracted = await extractEpub(buf)
-      if (extracted.blocks.length === 0)
+      if (extracted.blocks.length === 0) {
         throw new Error('No readable paragraphs in this EPUB.')
+      }
       title = extracted.title
       blocks = extracted.blocks
       setProgress({ c: 0, t: blocks.length })
 
       const lex = await loadLexicon(ui.pairId)
-      const keys = Object.keys(lex).length
-      if (keys === 0) {
-        throw new Error('Lexicon is empty — check lexicon JSON and deploy path.')
-      }
+      assertLexiconNonEmpty(lex)
 
       const blended = await runProgressiveBlend(
         blocks.map((b) => b.html),
@@ -232,12 +193,9 @@ export default function App() {
         lex,
         ui.paceGamma,
         ui.learnWordCap,
-        (c, t) => {
-          setProgress({ c, t })
-        },
+        (c, t) => setProgress({ c, t }),
       )
 
-      const hasL2 = blended.some((h) => h.includes('lang="es"'))
       const rec: BookRecord = {
         id,
         title,
@@ -250,24 +208,21 @@ export default function App() {
       await db.saveBook(rec)
       await refreshLibrary()
       setBlendWarning(
-        !hasL2 && blended.length > 0
-          ? 'No Spanish replacements were made: this book may not use words from the bundled lexicon (English lemmas in public/lexicons/en-es.json). Try another title or add words to the lexicon.'
-          : null,
+        !blendedOutputHasL2(blended) && blended.length > 0 ? NO_L2_BLEND_WARNING : null,
       )
       setActiveId(id)
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       setError(message)
       if (blocks.length > 0) {
-        const fallback: BookRecord = {
+        await db.saveBook({
           id,
           title,
           addedAt: Date.now(),
           blocks,
           blendedHtml: null,
           settingsSnapshot: snapshotForBook(ui),
-        }
-        await db.saveBook(fallback)
+        })
         await refreshLibrary()
       }
     } finally {
@@ -292,7 +247,7 @@ export default function App() {
     setSelectionHint(hit ? `${w} → ${hit}` : null)
   }
 
-  const showReader = activeId && record
+  const showReader = Boolean(activeId && record)
   const readerHtmls =
     showReader && record
       ? (record.blendedHtml ?? record.blocks.map((b) => b.html))
@@ -311,8 +266,7 @@ export default function App() {
     const q = vocabFilter.trim().toLowerCase()
     if (!q) return replacementRows
     return replacementRows.filter(
-      (r) =>
-        r.en.toLowerCase().includes(q) || r.es.toLowerCase().includes(q),
+      (r) => r.en.toLowerCase().includes(q) || r.es.toLowerCase().includes(q),
     )
   }, [replacementRows, vocabFilter])
 
@@ -349,21 +303,11 @@ export default function App() {
       {busy && !showReader ? (
         <div className="import-progress">
           <p className="hint">Extracting and blending…</p>
-          {progress ? (
-            <div className="progress-wrap">
-              <div className="progress-bar">
-                <div
-                  style={{
-                    width: `${Math.min(100, (100 * progress.c) / Math.max(1, progress.t))}%`,
-                  }}
-                />
-              </div>
-            </div>
-          ) : null}
+          {progress ? <ProgressBar current={progress.c} total={progress.t} /> : null}
         </div>
       ) : null}
 
-      {showReader ? (
+      {showReader && record ? (
         <>
           <div className="reader-title-row">
             <div className="hint reader-title-hint">
@@ -399,83 +343,76 @@ export default function App() {
             </button>
           </div>
           <div className="reader-body">
-          {readerTab === 'read' ? (
-            <>
-              {busy && !record.blendedHtml ? (
-                <div className="progress-wrap">
-                  <div className="progress-bar">
-                    <div
-                      style={{
-                        width: `${progress ? Math.min(100, (100 * progress.c) / Math.max(1, progress.t)) : 0}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              ) : null}
-              {record.blendedHtml ? (
-                <p className="hint pr-legend">
-                  Dotted underline: first time that word appears in Spanish. Later in the book, more
-                  of each paragraph shifts to Spanish; the last sections use your full word list.
+            {readerTab === 'read' ? (
+              <>
+                {busy && !record.blendedHtml && progress ? (
+                  <ProgressBar current={progress.c} total={progress.t} />
+                ) : null}
+                {record.blendedHtml ? (
+                  <p className="hint pr-legend">
+                    Dotted underline: first time that word appears in Spanish. Later in the book,
+                    more of each paragraph shifts to Spanish; the last sections use your full word
+                    list.
+                  </p>
+                ) : null}
+                <article
+                  className={`reader-scroll ${readerFontClass(ui.fontFamily)}`}
+                  style={
+                    {
+                      '--reader-fs': `${ui.fontSizePx}px`,
+                      '--reader-lh': String(ui.lineHeight),
+                    } as CSSProperties
+                  }
+                  onMouseUp={onReaderMouseUp}
+                >
+                  {record.blocks.map((b, i) => {
+                    const prev = record.blocks[i - 1]
+                    const showCh = !prev || prev.chapterIndex !== b.chapterIndex
+                    return (
+                      <div key={b.globalIndex}>
+                        {showCh ? <div className="chapter-label">{b.chapterTitle}</div> : null}
+                        <div
+                          className="reader-block"
+                          dangerouslySetInnerHTML={{ __html: readerHtmls[i] ?? '' }}
+                        />
+                      </div>
+                    )
+                  })}
+                </article>
+              </>
+            ) : (
+              <div className="vocab-panel">
+                <p className="hint vocab-panel-intro">
+                  Up to {ui.learnWordCap} English lemmas in blend priority (same order as mixing).
+                  Change the cap in Settings to include more or fewer words. Filter to search.
                 </p>
-              ) : null}
-              <article
-                className={`reader-scroll ${fontClass(ui.fontFamily)}`}
-                style={
-                  {
-                    '--reader-fs': `${ui.fontSizePx}px`,
-                    '--reader-lh': String(ui.lineHeight),
-                  } as CSSProperties
-                }
-                onMouseUp={onReaderMouseUp}
-              >
-                {record.blocks.map((b, i) => {
-                  const prev = record.blocks[i - 1]
-                  const showCh = !prev || prev.chapterIndex !== b.chapterIndex
-                  return (
-                    <div key={b.globalIndex}>
-                      {showCh ? <div className="chapter-label">{b.chapterTitle}</div> : null}
-                      <div
-                        className="reader-block"
-                        dangerouslySetInnerHTML={{ __html: readerHtmls[i] ?? '' }}
-                      />
-                    </div>
-                  )
-                })}
-              </article>
-            </>
-          ) : (
-            <div className="vocab-panel">
-              <p className="hint vocab-panel-intro">
-                Up to {ui.learnWordCap} English lemmas in blend priority (same order as mixing).
-                Change the cap in Settings to include more or fewer words. Filter to search.
-              </p>
-              <input
-                type="search"
-                className="vocab-filter"
-                placeholder="Filter English or Spanish…"
-                value={vocabFilter}
-                onChange={(e) => setVocabFilter(e.target.value)}
-                aria-label="Filter replacement words"
-              />
-              <p className="hint vocab-count">
-                {filteredReplacements.length} of {replacementRows.length} words
-              </p>
-              <ul className="vocab-list">
-                {filteredReplacements.map((r) => (
-                  <li key={r.en}>
-                    <span className="vocab-rank">{r.rank}</span>
-                    <span className="vocab-en">{r.en}</span>
-                    <span className="vocab-arrow" aria-hidden>
-                      →
-                    </span>
-                    <span className="vocab-es" lang="es">
-                      {r.es}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+                <input
+                  type="search"
+                  className="vocab-filter"
+                  placeholder="Filter English or Spanish…"
+                  value={vocabFilter}
+                  onChange={(e) => setVocabFilter(e.target.value)}
+                  aria-label="Filter replacement words"
+                />
+                <p className="hint vocab-count">
+                  {filteredReplacements.length} of {replacementRows.length} words
+                </p>
+                <ul className="vocab-list">
+                  {filteredReplacements.map((r) => (
+                    <li key={r.en}>
+                      <span className="vocab-rank">{r.rank}</span>
+                      <span className="vocab-en">{r.en}</span>
+                      <span className="vocab-arrow" aria-hidden>
+                        →
+                      </span>
+                      <span className="vocab-es" lang="es">
+                        {r.es}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </>
       ) : (
@@ -521,147 +458,13 @@ export default function App() {
       ) : null}
 
       {settingsOpen && draftUi ? (
-        <div
-          className="sheet"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="settings-title"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) cancelSettings()
-          }}
-        >
-          <div className="sheet-panel">
-            <h2 id="settings-title">Reading</h2>
-            <p className="hint sheet-hint">
-              Changes apply when you tap Apply. Escape or the backdrop cancels.
-            </p>
-            <div className="field">
-              <label htmlFor="theme">Theme</label>
-              <select
-                id="theme"
-                value={draftUi.theme}
-                onChange={(e) =>
-                  setDraftUi((s) =>
-                    s
-                      ? { ...s, theme: e.target.value as ReaderSettings['theme'] }
-                      : s,
-                  )
-                }
-              >
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-                <option value="sepia">Sepia</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="font">Font</label>
-              <select
-                id="font"
-                value={draftUi.fontFamily}
-                onChange={(e) =>
-                  setDraftUi((s) =>
-                    s
-                      ? {
-                          ...s,
-                          fontFamily: e.target.value as ReaderSettings['fontFamily'],
-                        }
-                      : s,
-                  )
-                }
-              >
-                <option value="serif">Serif</option>
-                <option value="sans">Sans</option>
-                <option value="readable">Readable sans</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="fs">Size {draftUi.fontSizePx}px</label>
-              <input
-                id="fs"
-                type="range"
-                min={14}
-                max={28}
-                value={draftUi.fontSizePx}
-                onChange={(e) =>
-                  setDraftUi((s) =>
-                    s ? { ...s, fontSizePx: Number(e.target.value) } : s,
-                  )
-                }
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="lh">Line height {draftUi.lineHeight.toFixed(2)}</label>
-              <input
-                id="lh"
-                type="range"
-                min={130}
-                max={220}
-                value={Math.round(draftUi.lineHeight * 100)}
-                onChange={(e) =>
-                  setDraftUi((s) =>
-                    s ? { ...s, lineHeight: Number(e.target.value) / 100 } : s,
-                  )
-                }
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="pace">Blend pace (gamma) {draftUi.paceGamma.toFixed(2)}</label>
-              <input
-                id="pace"
-                type="range"
-                min={60}
-                max={220}
-                value={Math.round(draftUi.paceGamma * 100)}
-                onChange={(e) =>
-                  setDraftUi((s) =>
-                    s ? { ...s, paceGamma: Number(e.target.value) / 100 } : s,
-                  )
-                }
-              />
-              <div className="hint">Higher = slower introduction of Spanish tokens.</div>
-            </div>
-            <div className="field">
-              <label htmlFor="learn-cap">Words to learn (max lemmas)</label>
-              <input
-                id="learn-cap"
-                type="number"
-                min={1}
-                max={5000}
-                step={1}
-                value={draftUi.learnWordCap}
-                onChange={(e) => {
-                  const n = parseInt(e.target.value, 10)
-                  if (!Number.isFinite(n)) return
-                  setDraftUi((s) =>
-                    s
-                      ? {
-                          ...s,
-                          learnWordCap: Math.max(1, Math.min(5000, n)),
-                        }
-                      : s,
-                  )
-                }}
-              />
-              <div className="hint">
-                Only this many distinct words (by priority) can appear as Spanish. Apply saves
-                settings and re-blends open books when mix options changed.
-              </div>
-            </div>
-            <div className="sheet-actions">
-              <button type="button" className="btn btn-secondary" onClick={cancelSettings}>
-                Cancel
-              </button>
-              <button type="button" className="btn" onClick={applySettings}>
-                Apply
-              </button>
-            </div>
-          </div>
-        </div>
+        <SettingsSheet
+          draft={draftUi}
+          onChange={setDraftUi}
+          onApply={applySettings}
+          onCancel={cancelSettings}
+        />
       ) : null}
     </div>
   )
 }
-
-
-
-

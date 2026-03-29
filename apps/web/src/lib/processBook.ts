@@ -1,5 +1,10 @@
 import type { ProcessMessage } from '../workers/progressive.worker'
 
+type WorkerOutMsg =
+  | { type: 'progress'; id: number; current: number; total: number }
+  | { type: 'result'; id: number; blendedHtml: string[] }
+  | { type: 'error'; id: number; message: string }
+
 let seq = 1
 
 export function runProgressiveBlend(
@@ -17,22 +22,16 @@ export function runProgressiveBlend(
     )
     const id = seq++
     const onMsg = (ev: MessageEvent) => {
-      const d = ev.data as
-        | { type: 'progress'; id: number; current: number; total: number }
-        | { type: 'result'; id: number; blendedHtml: string[] }
-        | { type: 'error'; id: number; message: string }
+      const d = ev.data as WorkerOutMsg
       if (d.id !== id) return
-      if (d.type === 'progress') onProgress(d.current, d.total)
-      if (d.type === 'result') {
-        worker.removeEventListener('message', onMsg)
-        worker.terminate()
-        resolve(d.blendedHtml)
+      if (d.type === 'progress') {
+        onProgress(d.current, d.total)
+        return
       }
-      if (d.type === 'error') {
-        worker.removeEventListener('message', onMsg)
-        worker.terminate()
-        reject(new Error(d.message))
-      }
+      worker.removeEventListener('message', onMsg)
+      worker.terminate()
+      if (d.type === 'result') resolve(d.blendedHtml)
+      else reject(new Error(d.message))
     }
     worker.addEventListener('message', onMsg)
     const msg: ProcessMessage = {
