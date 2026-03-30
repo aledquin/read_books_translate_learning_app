@@ -5,7 +5,7 @@
 #
 # Manual setup (cannot be automated in-repo):
 # 1. Repo `aledquin/aledquin.github.io` exists; default branch matches `publish_branch` below.
-# 2. GitHub Pages: Settings → Pages — branch `main`, / (root).
+# 2. GitHub Pages: Settings → Pages — Source = Deploy from branch `main`, folder / (root). Do not use artifact-only Pages if you rely on peaceiris commits to `main`.
 # 3. PAT with Contents: Read and write on `aledquin/aledquin.github.io` only.
 # 4. In THIS repo: Actions secret `GH_PAGES_TOKEN` = that PAT.
 # 5. Push to `main`/`master` or run this workflow manually.

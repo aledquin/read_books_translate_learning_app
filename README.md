@@ -73,7 +73,13 @@ Open the printed URL and ensure assets load under `/reader/`.
 | Pages on site repo | [Pages settings](https://github.com/aledquin/aledquin.github.io/settings/pages) — branch **main**, folder **/ (root)** |
 | Run deploy | [Workflow](https://github.com/aledquin/read_books_translate_learning_app/actions/workflows/deploy-gh-pages-reader.yml) → **Run workflow** |
 
-Live URLs: [aledquin.github.io](https://aledquin.github.io/) (landing) · […/reader/](https://aledquin.github.io/reader/) (app).
+Live URLs: [aledquin.github.io](https://aledquin.github.io/) (landing) · […/reader/](https://aledquin.github.io/reader/) (app). With a [custom domain](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site) (e.g. `www.aledquin.com`), use the same paths on that host.
+
+**If `/reader/` is 404** (but deploy workflow is green):
+
+1. **Pages must serve the `main` branch**, not only an Actions artifact. In [Pages settings](https://github.com/aledquin/aledquin.github.io/settings/pages), set **Build and deployment → Source** to **Deploy from a branch**, then **Branch: `main`**, **Folder: `/ (root)`**. If the source is **only** “GitHub Actions” in the sense of [artifact-based Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site#publishing-with-a-custom-github-actions-workflow) **without** also publishing from `main`, the files peaceiris commits to `main` (including `reader/`) are **not** what gets published — switch to **branch** deployment, or add a separate `deploy-pages` workflow in `aledquin.github.io` that matches this layout.
+2. Confirm **`reader/`** exists on GitHub: [github.com/aledquin/aledquin.github.io/tree/main/reader](https://github.com/aledquin/aledquin.github.io/tree/main/reader).
+3. Re-run the [deploy workflow](https://github.com/aledquin/read_books_translate_learning_app/actions/workflows/deploy-gh-pages-reader.yml) after fixing settings; wait 1–2 minutes for CDN.
 
 The workflow builds **`_site`** with the landing page at the repo root and the app under **`reader/`**, then pushes to `aledquin.github.io`. Production **`dist/`** also includes **`404.html`** and **`.nojekyll`** under `reader/` for the SPA.
 
