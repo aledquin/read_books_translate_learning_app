@@ -203,17 +203,35 @@ function splitForVitalets(text) {
   return parts.length ? parts : [t]
 }
 
+async function sleepMs(ms) {
+  await new Promise((r) => setTimeout(r, ms))
+}
+
+async function translateVitaletsWithRetries(chunk, attempts = 8) {
+  let lastErr
+  for (let a = 0; a < attempts; a++) {
+    try {
+      const { text: es } = await translateVitalets(chunk, { from: 'en', to: 'es' })
+      return es
+    } catch (e) {
+      lastErr = e
+      const backoff = Math.min(60_000, 3000 * 2 ** a)
+      await sleepMs(backoff)
+    }
+  }
+  throw lastErr ?? new Error('translateVitaletsWithRetries: unknown error')
+}
+
 async function translateVitaletsSegment(text) {
   const chunks = splitForVitalets(text)
   const out = []
   for (const c of chunks) {
-    const { text: es } = await translateVitalets(c, { from: 'en', to: 'es' })
-    out.push(es)
+    out.push(await translateVitaletsWithRetries(c))
   }
   return out.join(' ').replace(/\s+/g, ' ').trim()
 }
 
-async function translatePlain(text, cache, minIntervalMs) {
+async function translatePlain(text, cache, minIntervalMs, cacheFileHint = '') {
   const trimmed = text.replace(/\s+/g, ' ').trim()
   if (!trimmed) return ''
   if (cache[trimmed]) return cache[trimmed]
@@ -267,13 +285,24 @@ async function translatePlain(text, cache, minIntervalMs) {
         await tryVitalets()
         return
       } catch {
+        /* fall through only if retries inside tryVitalets exhausted */
+      }
+    }
+    if (libreKey) {
+      try {
+        await tryLibre()
+        return
+      } catch {
         /* fall through */
       }
     }
     try {
-      await tryLibre()
-    } catch {
       await tryMyMemory()
+    } catch (e) {
+      const hint = cacheFileHint ? ` Resume with same --cache ${cacheFileHint}` : ''
+      throw new Error(
+        `${e instanceof Error ? e.message : String(e)} — set GOOGLE_TRANSLATE_API_KEY or LIBRETRANSLATE_API_KEY, or wait and retry.${hint}`,
+      )
     }
   }
 
@@ -378,7 +407,7 @@ async function main() {
       const plain = (el.textContent ?? '').replace(/\s+/g, ' ').trim()
       if (!plain) continue
       stats.segments++
-      const t = await translatePlain(plain, cache, args.minIntervalMs)
+      const t = await translatePlain(plain, cache, args.minIntervalMs, args.cachePath)
       setElementTranslatedText(el, t)
       if (stats.segments % 25 === 0) {
         writeFileSync(args.cachePath, JSON.stringify(cache, null, 0), 'utf8')
