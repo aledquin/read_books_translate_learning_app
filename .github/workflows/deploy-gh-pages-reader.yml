@@ -1,7 +1,5 @@
-# Builds apps/web (base /reader/), assembles _site, pushes to aledquin.github.io:
-#   /index.html — landing (github-pages/landing/index.html)
-#   /reader/** — app dist
-# keep_files: true keeps other files on the Pages branch (if any).
+# Builds apps/web (base /reader/) and updates ONLY aledquin.github.io/reader/** — does not touch index.html or the rest of the site.
+# keep_files: true preserves your homepage and other pages.
 #
 # Manual setup (cannot be automated in-repo):
 # 1. Repo `aledquin/aledquin.github.io` exists; default branch matches `publish_branch` below.
@@ -21,7 +19,6 @@ on:
     branches: [main, master]
     paths:
       - 'apps/web/**'
-      - 'github-pages/**'
       - '.github/workflows/deploy-gh-pages-reader.yml'
   workflow_dispatch:
 
@@ -50,24 +47,22 @@ jobs:
           npm ci
           npm run build:gh-pages
 
-      - name: Assemble site (landing + reader app)
+      - name: Stage reader/ only (do not overwrite site index.html)
         run: |
-          mkdir -p _site/reader
-          cp -a apps/web/dist/. _site/reader/
-          cp github-pages/landing/index.html _site/index.html
-          : > _site/.nojekyll
+          mkdir -p out
+          cp -a apps/web/dist/. out/
 
       # v4 still declares `node20` in action.yml; env above mitigates until a newer release.
-      - name: Push to aledquin.github.io
+      - name: Push reader/ to aledquin.github.io
         uses: peaceiris/actions-gh-pages@v4.0.0
         with:
           personal_token: ${{ secrets.GH_PAGES_TOKEN }}
           external_repository: aledquin/aledquin.github.io
           publish_branch: main
-          publish_dir: ./_site
-          destination_dir: ''
+          publish_dir: ./out
+          destination_dir: reader
           keep_files: true
           user_name: github-actions[bot]
           user_email: 41898282+github-actions[bot]@users.noreply.github.com
-          commit_message: 'deploy: progressive reader (site + /reader/)'
+          commit_message: 'deploy: progressive reader (/reader/ only)'
           enable_jekyll: false
