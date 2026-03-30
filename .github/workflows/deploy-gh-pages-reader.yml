@@ -1,9 +1,14 @@
-# Builds apps/web with base /reader/ and pushes dist to aledquin/aledquin.github.io/reader/
+# Builds apps/web (base /reader/), assembles _site, pushes to aledquin.github.io:
+#   /index.html — landing (github-pages/landing/index.html)
+#   /reader/** — app dist
+# keep_files: true keeps other files on the Pages branch (if any).
 #
-# Setup:
-# 1. Create a fine-grained PAT (or classic PAT) with Contents: Read and write on repo aledquin/aledquin.github.io
-# 2. In THIS repo: Settings → Secrets → Actions → New secret GH_PAGES_TOKEN = that token
-# 3. If your Pages repo default branch is not `main`, change publish_branch below.
+# Manual setup (cannot be automated in-repo):
+# 1. Repo `aledquin/aledquin.github.io` exists; default branch matches `publish_branch` below.
+# 2. GitHub Pages: Settings → Pages — branch `main`, / (root).
+# 3. PAT with Contents: Read and write on `aledquin/aledquin.github.io` only.
+# 4. In THIS repo: Actions secret `GH_PAGES_TOKEN` = that PAT.
+# 5. Push to `main`/`master` or run this workflow manually.
 
 name: Deploy reader to GitHub Pages
 
@@ -12,8 +17,16 @@ on:
     branches: [main, master]
     paths:
       - 'apps/web/**'
+      - 'github-pages/**'
       - '.github/workflows/deploy-gh-pages-reader.yml'
   workflow_dispatch:
+
+concurrency:
+  group: deploy-gh-pages-reader
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
@@ -23,24 +36,33 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: apps/web/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
 
       - name: Install and build
         working-directory: apps/web
-        env:
-          BASE_PATH: /reader/
         run: |
-          npm install
-          npm run build
+          npm ci
+          npm run build:gh-pages
 
-      - name: Push to aledquin.github.io/reader/
+      - name: Assemble site (landing + reader app)
+        run: |
+          mkdir -p _site/reader
+          cp -a apps/web/dist/. _site/reader/
+          cp github-pages/landing/index.html _site/index.html
+          : > _site/.nojekyll
+
+      - name: Push to aledquin.github.io
         uses: peaceiris/actions-gh-pages@v4
         with:
           personal_token: ${{ secrets.GH_PAGES_TOKEN }}
           external_repository: aledquin/aledquin.github.io
           publish_branch: main
-          publish_dir: ./apps/web/dist
-          destination_dir: reader
+          publish_dir: ./_site
+          destination_dir: ''
+          keep_files: true
           user_name: github-actions[bot]
           user_email: 41898282+github-actions[bot]@users.noreply.github.com
-          commit_message: 'deploy: progressive reader (/reader/)'
+          commit_message: 'deploy: progressive reader (site + /reader/)'
+          enable_jekyll: false

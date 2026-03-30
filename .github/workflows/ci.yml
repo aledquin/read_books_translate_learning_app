@@ -1,0 +1,40 @@
+# Validates apps/web on every PR and push (no deploy).
+name: CI
+
+on:
+  pull_request:
+    paths:
+      - 'apps/web/**'
+      - 'github-pages/**'
+      - '.github/workflows/ci.yml'
+  push:
+    branches: [main, master]
+    paths:
+      - 'apps/web/**'
+      - 'github-pages/**'
+      - '.github/workflows/ci.yml'
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/web/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Verify (TypeScript + gh-pages build + tests)
+        run: npm run verify

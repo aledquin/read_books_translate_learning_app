@@ -179,7 +179,7 @@ async function translateMyMemoryChunk(text) {
   return out
 }
 
-const VITALETS_MAX_CHARS = 4200
+const VITALETS_MAX_CHARS = Number(process.env.VITALETS_MAX_CHARS || 2800) || 2800
 
 function splitForVitalets(text) {
   const t = text.trim()
@@ -207,15 +207,20 @@ async function sleepMs(ms) {
   await new Promise((r) => setTimeout(r, ms))
 }
 
-async function translateVitaletsWithRetries(chunk, attempts = 8) {
+function vitaletsHost() {
+  return (process.env.VITALETS_HOST || 'translate.google.com').trim() || 'translate.google.com'
+}
+
+async function translateVitaletsWithRetries(chunk, attempts = 22) {
+  const host = vitaletsHost()
   let lastErr
   for (let a = 0; a < attempts; a++) {
     try {
-      const { text: es } = await translateVitalets(chunk, { from: 'en', to: 'es' })
+      const { text: es } = await translateVitalets(chunk, { from: 'en', to: 'es', host })
       return es
     } catch (e) {
       lastErr = e
-      const backoff = Math.min(60_000, 3000 * 2 ** a)
+      const backoff = Math.min(120_000, 4000 + 2500 * a * a)
       await sleepMs(backoff)
     }
   }
@@ -225,8 +230,9 @@ async function translateVitaletsWithRetries(chunk, attempts = 8) {
 async function translateVitaletsSegment(text) {
   const chunks = splitForVitalets(text)
   const out = []
-  for (const c of chunks) {
-    out.push(await translateVitaletsWithRetries(c))
+  for (let i = 0; i < chunks.length; i++) {
+    if (i > 0) await sleepMs(250)
+    out.push(await translateVitaletsWithRetries(chunks[i]))
   }
   return out.join(' ').replace(/\s+/g, ' ').trim()
 }
@@ -296,14 +302,21 @@ async function translatePlain(text, cache, minIntervalMs, cacheFileHint = '') {
         /* fall through */
       }
     }
-    try {
-      await tryMyMemory()
-    } catch (e) {
-      const hint = cacheFileHint ? ` Resume with same --cache ${cacheFileHint}` : ''
-      throw new Error(
-        `${e instanceof Error ? e.message : String(e)} — set GOOGLE_TRANSLATE_API_KEY or LIBRETRANSLATE_API_KEY, or wait and retry.${hint}`,
-      )
+    if (process.env.USE_MYMEMORY_FALLBACK === '1' || process.env.USE_MYMEMORY_FALLBACK === 'true') {
+      try {
+        await tryMyMemory()
+        return
+      } catch (e) {
+        const hint = cacheFileHint ? ` Resume with same --cache ${cacheFileHint}` : ''
+        throw new Error(
+          `${e instanceof Error ? e.message : String(e)} — increase Vitalets retries or set GOOGLE_TRANSLATE_API_KEY / LIBRETRANSLATE_API_KEY.${hint}`,
+        )
+      }
     }
+    const hint = cacheFileHint ? ` Resume later: same command reuses ${cacheFileHint}` : ''
+    throw new Error(
+      `All translation backends failed (web Google client exhausted retries). Set GOOGLE_TRANSLATE_API_KEY or LIBRETRANSLATE_API_KEY, or run again later. ${hint}`,
+    )
   }
 
   await run()

@@ -56,7 +56,17 @@ Repo fixture (English): `fixtures/epub/white-nights-fyodor-dostoevsky.epub` (“
 - `src/lib/epubWhiteNights.fixture.test.ts` — zip + text sniff
 - `src/lib/epubZipBlockCount.test.ts` — stable block-count sanity check on that file
 
-When a **Spanish** EPUB exists as `white-nights-fyodor-dostoevsky.es.epub`, add a parity test next to the reader-feature ES test pattern.
+When `white-nights-fyodor-dostoevsky.es.epub` is present, `epubZipBlockCount.test.ts` asserts EN/ES block-count parity (otherwise that case is skipped).
+
+### Generate `white-nights-fyodor-dostoevsky.es.epub` (machine translation)
+
+From `apps/web`:
+
+```bash
+npm run epub:translate:white-nights
+```
+
+Runs `scripts/translate-epub-en-es.mjs` (keeps spine + block tags; writes a JSON cache beside the output for resume). **Recommended:** set `GOOGLE_TRANSLATE_API_KEY` for stable quota. Otherwise the script uses `@vitalets/google-translate-api` (unofficial Google web endpoint), which may return HTTP 429 after heavy use—wait and re-run, or set `LIBRETRANSLATE_API_KEY` + `LIBRETRANSLATE_URL`. Optional: `USE_MYMEMORY_FALLBACK=1` (low daily quota). Cache files are gitignored (`fixtures/epub/*.translation-cache.json`).
 
 ## Suggestions (quality)
 
@@ -78,6 +88,7 @@ When a **Spanish** EPUB exists as `white-nights-fyodor-dostoevsky.es.epub`, add 
 | Block count QA | `apps/web/src/lib/epubZipBlockCount.ts` |
 | Sentence split | `apps/web/src/lib/sentenceSplit.ts` |
 | Build tiny sample EPUBs | `apps/web/scripts/build-reader-feature-epub.mjs` |
+| EN→ES EPUB (Vitalets / Google / Libre) | `apps/web/scripts/translate-epub-en-es.mjs`, `npm run epub:translate:white-nights` |
 | Pipeline doc | `apps/web/docs/translation-pipeline.md`, `apps/web/public/docs/translation-pipeline.html` |
 
 ## More detail

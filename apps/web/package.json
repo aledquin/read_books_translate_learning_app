@@ -3,12 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "build:gh-pages": "tsc && cross-env BASE_PATH=/reader/ vite build",
     "preview": "vite preview",
     "preview:gh-pages": "cross-env BASE_PATH=/reader/ vite preview",
+    "verify": "npm run build:gh-pages && npm test",
     "test": "vitest run",
     "test:translation-pipeline": "vitest run src/lib/translationPipeline.integration.test.ts",
     "test:watch": "vitest",

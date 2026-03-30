@@ -32,9 +32,14 @@ npm run build
 npm run preview
 ```
 
-### GitHub Pages (`aledquin.github.io/reader/`)
+### GitHub Pages (`aledquin.github.io`)
 
-The app is configured for a **subpath** base when `BASE_PATH=/reader/` is set (see [`apps/web/vite.config.ts`](apps/web/vite.config.ts)). PWA `start_url`, `scope`, and Workbox `navigateFallback` follow that base.
+The deploy workflow publishes to **`aledquin/aledquin.github.io`**:
+
+- **`https://aledquin.github.io/`** — static landing page ([`github-pages/landing/index.html`](github-pages/landing/index.html)) with a link to the app.
+- **`https://aledquin.github.io/reader/`** — built PWA (`npm run build:gh-pages`). The app uses **`BASE_PATH=/reader/`** (see [`apps/web/vite.config.ts`](apps/web/vite.config.ts)); PWA `start_url`, `scope`, and Workbox `navigateFallback` follow that base.
+
+Other files already on the Pages branch are preserved (`keep_files: true`). To change the homepage copy or styling, edit `github-pages/landing/index.html`.
 
 **Local production check**
 
@@ -46,15 +51,30 @@ npm run preview:gh-pages
 
 Open the printed URL and ensure assets load under `/reader/`.
 
+**CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every PR and push to `main`/`master` when `apps/web` or `github-pages/` changes: `npm ci` → `npm run verify` (same as `build:gh-pages` + full test suite).
+
 **Automated deploy** ([`.github/workflows/deploy-gh-pages-reader.yml`](.github/workflows/deploy-gh-pages-reader.yml))
 
-1. In this repository: **Settings → Secrets and variables → Actions → New repository secret**  
+1. **Target repo** `aledquin/aledquin.github.io` exists on GitHub; your PAT can push to it.
+2. **GitHub Pages** on that repo: **Settings → Pages** — source **branch `main`**, folder **`/ (root)`** (the workflow writes `index.html`, `.nojekyll`, and `reader/` at the root of that branch).
+3. **PAT** with **Contents: Read and write** on `aledquin/aledquin.github.io` only ([fine-grained](https://github.com/settings/tokens?type=beta) or classic).
+4. In **this** repo: **Settings → Secrets and variables → Actions → New repository secret**  
    Name: `GH_PAGES_TOKEN`  
-   Value: a [fine-grained PAT](https://github.com/settings/tokens?type=beta) (or classic PAT) with **Contents: Read and write** on `aledquin/aledquin.github.io` only.
-2. Confirm the Pages repo default branch in the workflow (`publish_branch: main`). If it uses `master`, change that key.
-3. Push to `main` or `master` (with changes under `apps/web/`) or run the workflow manually (**Actions → Deploy reader to GitHub Pages → Run workflow**).
+   Value: that PAT.
+5. Confirm `publish_branch` in the workflow matches the branch you use on `aledquin.github.io` (`main` is the default).
+6. Push to `main` or `master` (with changes under `apps/web/`) or run the workflow manually (**Actions → Deploy reader to GitHub Pages → Run workflow**).
 
-The workflow copies `apps/web/dist` into the **`reader/`** folder of `aledquin.github.io`, so the public URL is **`https://aledquin.github.io/reader/`**. Add a link from your main site, e.g. `href="/reader/"`.
+The workflow builds **`_site`** with the landing page at the repo root and the app under **`reader/`**, then pushes to `aledquin.github.io`. Production **`dist/`** also includes **`404.html`** and **`.nojekyll`** under `reader/` for the SPA.
+
+**Dependency updates:** [`.github/dependabot.yml`](.github/dependabot.yml) proposes monthly bumps for npm (`apps/web`) and GitHub Actions.
+
+**Local one-shot check** (same as CI):
+
+```bash
+cd apps/web
+npm ci
+npm run verify
+```
 
 ## Limitations (v1)
 

@@ -62,10 +62,10 @@ function parseSpineIds(opf: string): string[] {
 
 /**
  * Non-empty reading blocks (same element types as `extractEpub`), after skip rules.
- * Accepts `Buffer` (Node) or `ArrayBuffer` for JSZip.
+ * Accepts `ArrayBuffer` or `Uint8Array` (including Node `Buffer`) for JSZip.
  */
 export async function countEpubReadingBlocks(
-  data: ArrayBuffer | Buffer,
+  data: ArrayBuffer | Uint8Array,
 ): Promise<{
   total: number
   opfPath: string | null

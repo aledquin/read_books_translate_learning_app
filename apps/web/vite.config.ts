@@ -1,6 +1,28 @@
+import { copyFileSync, existsSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { defineConfig, loadEnv } from 'vite'
+import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+
+/** GitHub Pages: SPA fallback + disable Jekyll for static assets. */
+function ghPagesExtrasPlugin(): Plugin {
+  let outDir = 'dist'
+  return {
+    name: 'gh-pages-extras',
+    apply: 'build',
+    configResolved(config) {
+      outDir = config.build.outDir
+    },
+    closeBundle() {
+      const root = resolve(process.cwd(), outDir)
+      const indexHtml = resolve(root, 'index.html')
+      if (!existsSync(indexHtml)) return
+      copyFileSync(indexHtml, resolve(root, '404.html'))
+      writeFileSync(resolve(root, '.nojekyll'), '')
+    },
+  }
+}
 
 /** GitHub Pages subpath, e.g. `/reader/`. Set `BASE_PATH=/reader/` for deploy builds. */
 function appBase(): string {
@@ -57,6 +79,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
+      ghPagesExtrasPlugin(),
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['lexicons/*.json', 'favicon.svg'],

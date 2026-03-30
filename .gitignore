@@ -1,5 +1,6 @@
-﻿node_modules/
+node_modules/
 dist/
 *.local
 .DS_Store
 apps/web/dev-dist/
+fixtures/epub/*.translation-cache.json
