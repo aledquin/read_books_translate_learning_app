@@ -34,12 +34,9 @@ npm run preview
 
 ### GitHub Pages (`aledquin.github.io`)
 
-The deploy workflow publishes to **`aledquin/aledquin.github.io`**:
+The deploy workflow publishes **only** **`reader/`** on **`aledquin/aledquin.github.io`** (it does **not** overwrite your site’s root `index.html`). Add links to **`/reader/`** from your own homepage/nav ([`github-pages/landing/index.html`](github-pages/landing/index.html) is an optional standalone reference, not deployed by default).
 
-- **`https://aledquin.github.io/`** — static landing page ([`github-pages/landing/index.html`](github-pages/landing/index.html)) with a link to the app.
-- **`https://aledquin.github.io/reader/`** — built PWA (`npm run build:gh-pages`). The app uses **`BASE_PATH=/reader/`** (see [`apps/web/vite.config.ts`](apps/web/vite.config.ts)); PWA `start_url`, `scope`, and Workbox `navigateFallback` follow that base.
-
-Other files already on the Pages branch are preserved (`keep_files: true`). To change the homepage copy or styling, edit `github-pages/landing/index.html`.
+- **`https://aledquin.github.io/reader/`** (and the same path on your custom domain) — built PWA (`npm run build:gh-pages`). The app uses **`BASE_PATH=/reader/`** (see [`apps/web/vite.config.ts`](apps/web/vite.config.ts)); PWA `start_url`, `scope`, and Workbox `navigateFallback` follow that base.
 
 **Local production check**
 
@@ -56,7 +53,7 @@ Open the printed URL and ensure assets load under `/reader/`.
 **Automated deploy** ([`.github/workflows/deploy-gh-pages-reader.yml`](.github/workflows/deploy-gh-pages-reader.yml))
 
 1. **Target repo** `aledquin/aledquin.github.io` exists on GitHub; your PAT can push to it.
-2. **GitHub Pages** on that repo: **Settings → Pages** — source **branch `main`**, folder **`/ (root)`** (the workflow writes `index.html`, `.nojekyll`, and `reader/` at the root of that branch).
+2. **GitHub Pages** on that repo: **Settings → Pages** — source **branch `main`**, folder **`/ (root)`** (your site lives there; the workflow only updates the **`reader/`** folder).
 3. **PAT** with **Contents: Read and write** on `aledquin/aledquin.github.io` only ([fine-grained](https://github.com/settings/tokens?type=beta) or classic).
 4. In **this** repo: **Settings → Secrets and variables → Actions → New repository secret**  
    Name: `GH_PAGES_TOKEN`  
@@ -81,7 +78,7 @@ Live URLs: [aledquin.github.io](https://aledquin.github.io/) (landing) · […/r
 2. Confirm **`reader/`** exists on GitHub: [github.com/aledquin/aledquin.github.io/tree/main/reader](https://github.com/aledquin/aledquin.github.io/tree/main/reader).
 3. Re-run the [deploy workflow](https://github.com/aledquin/read_books_translate_learning_app/actions/workflows/deploy-gh-pages-reader.yml) after fixing settings; wait 1–2 minutes for CDN.
 
-The workflow builds **`_site`** with the landing page at the repo root and the app under **`reader/`**, then pushes to `aledquin.github.io`. Production **`dist/`** also includes **`404.html`** and **`.nojekyll`** under `reader/` for the SPA.
+The workflow copies **`apps/web/dist`** into **`reader/`** on `aledquin.github.io`. Production **`dist/`** includes **`404.html`** and **`.nojekyll`** under `reader/` for the SPA.
 
 **Dependency updates:** [`.github/dependabot.yml`](.github/dependabot.yml) proposes monthly bumps for npm (`apps/web`) and GitHub Actions.
 
