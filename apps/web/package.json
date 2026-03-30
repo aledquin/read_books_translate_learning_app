@@ -39,7 +39,7 @@
     "jszip": "^3.10.1",
     "typescript": "~5.7.2",
     "vite": "^6.2.0",
-    "vite-plugin-pwa": "^0.21.1",
+    "vite-plugin-pwa": "^1.2.0",
     "vitest": "^3.0.9"
   }
 }
