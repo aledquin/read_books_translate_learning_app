@@ -1,0 +1,191 @@
+{
+  "title": "Reader Feature Sample",
+  "blocks": [
+    {
+      "chapterIndex": 0,
+      "chapterTitle": "Section 1",
+      "blockIndex": 0,
+      "globalIndex": 0,
+      "html": "<p>Time and day meet in this line. Night turns into morning before we walk again.</p>",
+      "plain": "Time and day meet in this line. Night turns into morning before we walk again.",
+      "plainEs": "El tiempo y el día se encuentran en esta línea. La noche se vuelve mañana antes de volver a caminar."
+    },
+    {
+      "chapterIndex": 0,
+      "chapterTitle": "Section 1",
+      "blockIndex": 1,
+      "globalIndex": 1,
+      "html": "<p>I walk to the house and see the door. The window shows a little light inside the room.</p>",
+      "plain": "I walk to the house and see the door. The window shows a little light inside the room.",
+      "plainEs": "Camino hasta la casa y veo la puerta. La ventana muestra una pequeña luz dentro de la habitación."
+    },
+    {
+      "chapterIndex": 0,
+      "chapterTitle": "Section 1",
+      "blockIndex": 2,
+      "globalIndex": 2,
+      "html": "<p>I think I know this place. My heart remembers the story I read in an old book.</p>",
+      "plain": "I think I know this place. My heart remembers the story I read in an old book.",
+      "plainEs": "Creo que conozco este lugar. Mi corazón recuerda la historia que leí en un libro viejo."
+    },
+    {
+      "chapterIndex": 0,
+      "chapterTitle": "Section 1",
+      "blockIndex": 3,
+      "globalIndex": 3,
+      "html": "<p>Every word mattered to the child and the friend who shared the world of that tale.</p>",
+      "plain": "Every word mattered to the child and the friend who shared the world of that tale.",
+      "plainEs": "Cada palabra importaba al niño y al amigo que compartieron el mundo de ese relato."
+    },
+    {
+      "chapterIndex": 0,
+      "chapterTitle": "Section 1",
+      "blockIndex": 4,
+      "globalIndex": 4,
+      "html": "<p>Life is short; love and hope can fill it. The sun, the moon, and one bright star marked the sky.</p>",
+      "plain": "Life is short; love and hope can fill it. The sun, the moon, and one bright star marked the sky.",
+      "plainEs": "La vida es breve; el amor y la esperanza pueden llenarla. El sol, la luna y una estrella brillante marcaron el cielo."
+    },
+    {
+      "chapterIndex": 0,
+      "chapterTitle": "Section 1",
+      "blockIndex": 5,
+      "globalIndex": 5,
+      "html": "<p>We hear the wind and feel the sea. A ship once waited where the road meets the forest.</p>",
+      "plain": "We hear the wind and feel the sea. A ship once waited where the road meets the forest.",
+      "plainEs": "Oímos el viento y sentimos el mar. Una vez un barco esperaba donde el camino se encuentra con el bosque."
+    },
+    {
+      "chapterIndex": 0,
+      "chapterTitle": "Section 1",
+      "blockIndex": 6,
+      "globalIndex": 6,
+      "html": "<h2>Questions of hope</h2>",
+      "plain": "Questions of hope",
+      "plainEs": "Preguntas de esperanza"
+    },
+    {
+      "chapterIndex": 0,
+      "chapterTitle": "Section 1",
+      "blockIndex": 7,
+      "globalIndex": 7,
+      "html": "<p>One simple question can change a year. In a quiet moment I asked for peace instead of fear.</p>",
+      "plain": "One simple question can change a year. In a quiet moment I asked for peace instead of fear.",
+      "plainEs": "Una pregunta sencilla puede cambiar un año. En un momento tranquilo pedí paz en lugar de miedo."
+    },
+    {
+      "chapterIndex": 0,
+      "chapterTitle": "Section 1",
+      "blockIndex": 8,
+      "globalIndex": 8,
+      "html": "<p>I dream at night and wake by day. My voice was small, but the song still carried truth.</p>",
+      "plain": "I dream at night and wake by day. My voice was small, but the song still carried truth.",
+      "plainEs": "Sueño de noche y despierto de día. Mi voz era pequeña, pero la canción aún llevaba verdad."
+    },
+    {
+      "chapterIndex": 0,
+      "chapterTitle": "Section 1",
+      "blockIndex": 9,
+      "globalIndex": 9,
+      "html": "<blockquote>Love and life go together. Truth is better than any lie, good or bad.</blockquote>",
+      "plain": "Love and life go together. Truth is better than any lie, good or bad.",
+      "plainEs": "El amor y la vida van juntos. La verdad es mejor que cualquier mentira, buena o mala."
+    },
+    {
+      "chapterIndex": 0,
+      "chapterTitle": "Section 1",
+      "blockIndex": 10,
+      "globalIndex": 10,
+      "html": "<li>People work, play, and learn when they have time.</li>",
+      "plain": "People work, play, and learn when they have time.",
+      "plainEs": "La gente trabaja, juega y aprende cuando tiene tiempo."
+    },
+    {
+      "chapterIndex": 0,
+      "chapterTitle": "Section 1",
+      "blockIndex": 11,
+      "globalIndex": 11,
+      "html": "<li>Teachers teach answers, yet the great question remains.</li>",
+      "plain": "Teachers teach answers, yet the great question remains.",
+      "plainEs": "Los maestros enseñan respuestas, pero la gran pregunta sigue ahí."
+    },
+    {
+      "chapterIndex": 1,
+      "chapterTitle": "Section 2",
+      "blockIndex": 0,
+      "globalIndex": 12,
+      "html": "<h2>The city and the road</h2>",
+      "plain": "The city and the road",
+      "plainEs": "La ciudad y el camino"
+    },
+    {
+      "chapterIndex": 1,
+      "chapterTitle": "Section 2",
+      "blockIndex": 1,
+      "globalIndex": 13,
+      "html": "<p>Water and fire shaped the old city. A man and a woman walked the road toward home.</p>",
+      "plain": "Water and fire shaped the old city. A man and a woman walked the road toward home.",
+      "plainEs": "El agua y el fuego moldearon la ciudad antigua. Un hombre y una mujer caminaron por el camino hacia casa."
+    },
+    {
+      "chapterIndex": 1,
+      "chapterTitle": "Section 2",
+      "blockIndex": 2,
+      "globalIndex": 14,
+      "html": "<p>The horse and the dog rested near a tree. A bird watched from a stone by the table.</p>",
+      "plain": "The horse and the dog rested near a tree. A bird watched from a stone by the table.",
+      "plainEs": "El caballo y el perro descansaron cerca de un árbol. Un pájaro miraba desde una piedra junto a la mesa."
+    },
+    {
+      "chapterIndex": 1,
+      "chapterTitle": "Section 2",
+      "blockIndex": 3,
+      "globalIndex": 15,
+      "html": "<p>Bread and wine sat on the chair. Gold and stone tell different stories under the eye of the king.</p>",
+      "plain": "Bread and wine sat on the chair. Gold and stone tell different stories under the eye of the king.",
+      "plainEs": "El pan y el vino estaban en la silla. El oro y la piedra cuentan historias distintas bajo la mirada del rey."
+    },
+    {
+      "chapterIndex": 1,
+      "chapterTitle": "Section 2",
+      "blockIndex": 4,
+      "globalIndex": 16,
+      "html": "<p>The queen spoke of war and peace. Young and old people listened in that public place.</p>",
+      "plain": "The queen spoke of war and peace. Young and old people listened in that public place.",
+      "plainEs": "La reina habló de guerra y paz. Jóvenes y mayores escucharon en aquel lugar público."
+    },
+    {
+      "chapterIndex": 1,
+      "chapterTitle": "Section 2",
+      "blockIndex": 5,
+      "globalIndex": 17,
+      "html": "<p>Sleep came after a long day of work. I did not want death; I wanted another morning.</p>",
+      "plain": "Sleep came after a long day of work. I did not want death; I wanted another morning.",
+      "plainEs": "El sueño llegó tras un largo día de trabajo. No quería la muerte; quería otra mañana."
+    },
+    {
+      "chapterIndex": 1,
+      "chapterTitle": "Section 2",
+      "blockIndex": 6,
+      "globalIndex": 18,
+      "html": "<p>The forest path was dark, but the city light returned. Name this year as you wish.</p>",
+      "plain": "The forest path was dark, but the city light returned. Name this year as you wish.",
+      "plainEs": "El sendero del bosque estaba oscuro, pero la luz de la ciudad regresó. Nombra este año como quieras."
+    },
+    {
+      "chapterIndex": 1,
+      "chapterTitle": "Section 2",
+      "blockIndex": 7,
+      "globalIndex": 19,
+      "html": "<p>This short sample ends here. Use tap translation, replace mode, or word blend to test the reader.</p>",
+      "plain": "This short sample ends here. Use tap translation, replace mode, or word blend to test the reader.",
+      "plainEs": "Esta breve muestra termina aquí. Usa la traducción al toque, el modo de reemplazo o la mezcla de palabras para probar el lector."
+    }
+  ],
+  "meta": {
+    "enBlocks": 20,
+    "esBlocks": 20,
+    "paired": 20,
+    "note": "Regenerate with npm run epub:feature-sample (apps/web)."
+  }
+}

@@ -2,11 +2,13 @@
  * Builds fixture EPUBs under fixtures/epub/ (same block order for EN + ES companion import):
  *   - reader-feature-sample.epub (English)
  *   - reader-feature-sample.es.epub (Spanish — bundled translation, no API)
+ *   - reader-feature-sample.blocks.json (paired blocks for Vitest — no epubjs in CI)
  * Run from apps/web: npm run epub:feature-sample
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parseHTML } from 'linkedom'
 import JSZip from 'jszip'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -15,6 +17,7 @@ const repoRoot = join(__dirname, '..', '..', '..')
 const fixturesEpub = join(repoRoot, 'fixtures', 'epub')
 const outPathEn = join(fixturesEpub, 'reader-feature-sample.epub')
 const outPathEs = join(fixturesEpub, 'reader-feature-sample.es.epub')
+const outPathBlocksJson = join(fixturesEpub, 'reader-feature-sample.blocks.json')
 
 const containerXml = `<?xml version="1.0" encoding="UTF-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
@@ -181,6 +184,58 @@ const ch2XhtmlEs = `<?xml version="1.0" encoding="UTF-8"?>
 </html>
 `
 
+/**
+ * Mirrors `extractEpub` block order (p, h1–h4, blockquote, li) for tests.
+ */
+function blocksFromXhtmlString(xhtml, chapterIndex, chapterTitle, globalCounter) {
+  const { document } = parseHTML(xhtml)
+  const body = document.body
+  if (!body) return
+  const candidates = body.querySelectorAll('p, h1, h2, h3, h4, blockquote, li')
+  candidates.forEach((el, j) => {
+    const plain = el.textContent.replace(/\s+/g, ' ').trim()
+    if (!plain) return
+    globalCounter.blocks.push({
+      chapterIndex,
+      chapterTitle,
+      blockIndex: j,
+      globalIndex: globalCounter.i++,
+      html: el.outerHTML,
+      plain,
+    })
+  })
+}
+
+function buildCompanionBlocksJson() {
+  const globalCounter = { i: 0, blocks: [] }
+  blocksFromXhtmlString(ch1XhtmlEn, 0, 'Section 1', globalCounter)
+  blocksFromXhtmlString(ch2XhtmlEn, 1, 'Section 2', globalCounter)
+  const enBlocks = globalCounter.blocks
+
+  const esCounter = { i: 0, blocks: [] }
+  blocksFromXhtmlString(ch1XhtmlEs, 0, 'Section 1', esCounter)
+  blocksFromXhtmlString(ch2XhtmlEs, 1, 'Section 2', esCounter)
+  const esBlocks = esCounter.blocks
+
+  const n = Math.min(enBlocks.length, esBlocks.length)
+  const blocks = enBlocks.map((b, i) => {
+    if (i >= n) return b
+    const pe = esBlocks[i].plain
+    return pe ? { ...b, plainEs: pe } : b
+  })
+
+  return {
+    title: 'Reader Feature Sample',
+    blocks,
+    meta: {
+      enBlocks: enBlocks.length,
+      esBlocks: esBlocks.length,
+      paired: n,
+      note: 'Regenerate with npm run epub:feature-sample (apps/web).',
+    },
+  }
+}
+
 async function writeEpub(outPath, packageOpf, navXhtml, ch1Xhtml, ch2Xhtml) {
   const zip = new JSZip()
   zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' })
@@ -203,3 +258,7 @@ async function writeEpub(outPath, packageOpf, navXhtml, ch1Xhtml, ch2Xhtml) {
 
 await writeEpub(outPathEn, packageOpfEn, navXhtmlEn, ch1XhtmlEn, ch2XhtmlEn)
 await writeEpub(outPathEs, packageOpfEs, navXhtmlEs, ch1XhtmlEs, ch2XhtmlEs)
+
+const blocksPayload = buildCompanionBlocksJson()
+writeFileSync(outPathBlocksJson, `${JSON.stringify(blocksPayload, null, 2)}\n`, 'utf8')
+console.log('Wrote', outPathBlocksJson)

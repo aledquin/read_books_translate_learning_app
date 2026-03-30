@@ -7,8 +7,6 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { ContentBlock, ReaderSettings } from '../types/book'
 import { defaultSettings } from '../types/book'
-import { attachSpanishCompanionBlocks } from './epubCompanion'
-import { extractEpub } from './epubExtract'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -23,6 +21,11 @@ export function readerFeatureSampleEnPath(): string {
 
 export function readerFeatureSampleEsPath(): string {
   return join(repoRootFromLib(), 'fixtures', 'epub', 'reader-feature-sample.es.epub')
+}
+
+/** Paired blocks built with `npm run epub:feature-sample` (linkedom; same order as `extractEpub`). */
+export function readerFeatureSampleBlocksJsonPath(): string {
+  return join(repoRootFromLib(), 'fixtures', 'epub', 'reader-feature-sample.blocks.json')
 }
 
 export function bundledLexiconPath(): string {
@@ -40,16 +43,19 @@ export const FIXTURE_FIRST_SPANISH_PHRASE = 'El tiempo y el día se encuentran e
 /** English opening (progressive mix still contains English surface). */
 export const FIXTURE_FIRST_ENGLISH_SURFACE = 'Time and day'
 
-export async function loadReaderFeatureSampleWithCompanion(): Promise<{
+type BlocksFixtureFile = {
+  title: string
+  blocks: ContentBlock[]
+}
+
+/** Loads committed fixture JSON (fast; no epubjs). Regenerate: `npm run epub:feature-sample`. */
+export function loadReaderFeatureSampleWithCompanion(): {
   blocks: ContentBlock[]
   title: string
-}> {
-  const enBuf = readFileSync(readerFeatureSampleEnPath())
-  const esBuf = readFileSync(readerFeatureSampleEsPath())
-  const en = await extractEpub(enBuf.buffer.slice(enBuf.byteOffset, enBuf.byteOffset + enBuf.byteLength))
-  const es = await extractEpub(esBuf.buffer.slice(esBuf.byteOffset, esBuf.byteOffset + esBuf.byteLength))
-  const { blocks } = attachSpanishCompanionBlocks(en.blocks, es.blocks)
-  return { blocks, title: en.title }
+} {
+  const raw = readFileSync(readerFeatureSampleBlocksJsonPath(), 'utf8')
+  const data = JSON.parse(raw) as BlocksFixtureFile
+  return { blocks: data.blocks, title: data.title }
 }
 
 export type BlendedAnalysis = {
@@ -146,3 +152,8 @@ export const NON_API_PIPELINE_SCENARIOS: PipelineScenario[] = [
     }),
   },
 ]
+
+/** Same book with `plainEs` stripped — lexicon progressive mix only (no bundled sentence source). */
+export function stripBundledSpanish(blocks: ContentBlock[]): ContentBlock[] {
+  return blocks.map(({ plainEs: _p, ...b }) => b)
+}

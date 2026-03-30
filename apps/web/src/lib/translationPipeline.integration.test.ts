@@ -1,6 +1,7 @@
 /**
- * End-to-end translation display (no APIs): reader-feature-sample EN+ES EPUBs + bundled lexicon.
+ * End-to-end translation display (no APIs): `reader-feature-sample.blocks.json` + bundled lexicon.
  * `runProgressiveBlend` is mocked to use sync `blendProgressiveHtml` so Vitest does not require Workers.
+ * Regenerate blocks: `npm run epub:feature-sample` (apps/web).
  */
 import { existsSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
@@ -12,7 +13,9 @@ import {
   loadBundledEnEsLexicon,
   loadReaderFeatureSampleWithCompanion,
   NON_API_PIPELINE_SCENARIOS,
+  readerFeatureSampleBlocksJsonPath,
   readerFeatureSampleEnPath,
+  stripBundledSpanish,
   type BlendedAnalysis,
 } from './translationPipelineHarness'
 
@@ -48,15 +51,16 @@ function expectAnalysis(
 }
 
 describe('translation pipeline (fixtures, no APIs)', () => {
-  it('requires built reader-feature-sample EPUBs at repo fixtures/epub', () => {
+  it('requires built reader-feature-sample EPUBs and blocks JSON at repo fixtures/epub', () => {
     expect(existsSync(readerFeatureSampleEnPath())).toBe(true)
+    expect(existsSync(readerFeatureSampleBlocksJsonPath())).toBe(true)
   })
 
   it('runs all non-API scenarios and produces a stable report snapshot', async () => {
     const lex = loadBundledEnEsLexicon()
     expect(Object.keys(lex).length).toBeGreaterThan(10)
 
-    const { blocks, title } = await loadReaderFeatureSampleWithCompanion()
+    const { blocks, title } = loadReaderFeatureSampleWithCompanion()
     expect(title).toContain('Reader Feature')
     const linked = blocks.filter((b) => b.plainEs?.trim())
     expect(linked.length).toBe(blocks.length)
@@ -160,5 +164,19 @@ describe('translation pipeline (fixtures, no APIs)', () => {
     }
 
     expect(report).toMatchSnapshot()
-  }, 60_000)
+  })
+
+  it('English-only blocks: no plainEs → replace modes would need APIs; progressive-only stays inline L2', async () => {
+    const lex = loadBundledEnEsLexicon()
+    const { blocks: withEs } = loadReaderFeatureSampleWithCompanion()
+    const blocks = stripBundledSpanish(withEs)
+    expect(blocks.some((b) => b.plainEs?.trim())).toBe(false)
+
+    const ui = NON_API_PIPELINE_SCENARIOS.find((s) => s.id === 'progressive_only')!.ui
+    const blended = await buildBlendedHtmlPipeline(blocks, lex, ui, () => {})
+    const a = analyzeBlendedHtml(blended)
+    expect(a.blocksWithPrSentenceMt).toBe(0)
+    expect(a.hasLangEs).toBe(true)
+    expect(a.langEsSpanCount).toBeGreaterThan(3)
+  })
 })
