@@ -6,7 +6,9 @@ export function loadUiSettings(): ReaderSettings {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return { ...defaultSettings }
-    const p = JSON.parse(raw) as Partial<ReaderSettings>
+    const p = JSON.parse(raw) as Partial<ReaderSettings> & {
+      sentenceTranslateAfterLemma?: number
+    }
     const merged = { ...defaultSettings, ...p }
     const cap =
       typeof merged.learnWordCap === 'number' && Number.isFinite(merged.learnWordCap)
@@ -14,12 +16,26 @@ export function loadUiSettings(): ReaderSettings {
         : defaultSettings.learnWordCap
     merged.learnWordCap = Math.max(1, Math.min(5000, cap))
     merged.sentenceTranslateEnabled = Boolean(merged.sentenceTranslateEnabled)
-    const after =
-      typeof merged.sentenceTranslateAfterLemma === 'number' &&
-      Number.isFinite(merged.sentenceTranslateAfterLemma)
-        ? Math.round(merged.sentenceTranslateAfterLemma)
-        : defaultSettings.sentenceTranslateAfterLemma
-    merged.sentenceTranslateAfterLemma = Math.max(1, Math.min(5000, after))
+    const rawSight =
+      typeof p.sentenceTranslateAfterSightings === 'number' &&
+      Number.isFinite(p.sentenceTranslateAfterSightings)
+        ? Math.round(p.sentenceTranslateAfterSightings)
+        : typeof p.sentenceTranslateAfterLemma === 'number' &&
+            Number.isFinite(p.sentenceTranslateAfterLemma)
+          ? Math.round(p.sentenceTranslateAfterLemma)
+          : defaultSettings.sentenceTranslateAfterSightings
+    merged.sentenceTranslateAfterSightings = Math.max(1, Math.min(5000, rawSight))
+    delete (merged as { sentenceTranslateAfterLemma?: unknown }).sentenceTranslateAfterLemma
+    merged.sentenceTranslateWhen =
+      merged.sentenceTranslateWhen === 'from_beginning'
+        ? 'from_beginning'
+        : 'after_lexicon_sightings'
+    merged.sentenceTranslateStyle =
+      merged.sentenceTranslateStyle === 'tap_to_reveal'
+        ? 'tap_to_reveal'
+        : merged.sentenceTranslateStyle === 'replace_sentence'
+          ? 'replace_sentence'
+          : 'replace_paragraph'
     return merged
   } catch {
     return { ...defaultSettings }

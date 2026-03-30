@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "preview:gh-pages": "cross-env BASE_PATH=/reader/ vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "epub:feature-sample": "node scripts/build-reader-feature-epub.mjs"
   },
   "dependencies": {
     "compromise": "^14.14.4",

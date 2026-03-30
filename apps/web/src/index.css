@@ -103,6 +103,80 @@ body {
   display: none;
 }
 
+.file-label-secondary {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.library-import-row {
+  margin-bottom: 10px;
+}
+
+.library-staged {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.library-staged-clear {
+  margin-left: 10px;
+  vertical-align: baseline;
+}
+
+.library-staged-placeholder {
+  margin: 6px 0 10px;
+  font-size: 0.8rem;
+}
+
+.import-status-detail {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  color: var(--accent);
+}
+
+.reader-work-status {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: normal;
+}
+
+.import-activity {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+}
+
+.import-activity summary {
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.import-activity-pre {
+  margin: 10px 0 6px;
+  padding: 8px;
+  max-height: 220px;
+  overflow: auto;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--bg);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.import-activity-clear {
+  font-size: 0.8rem;
+}
+
 .list {
   list-style: none;
   padding: 0;
@@ -295,10 +369,71 @@ body {
   padding-bottom: 96px;
 }
 
+.field-label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--fg);
+}
+
+.field-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.88rem;
+}
+
+.field-radio-group label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.field-radio-group input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.reader-block-wrap {
+  margin: 0 0 1rem;
+}
+
 .reader-block {
   margin: 0 0 1rem;
   line-height: var(--reader-lh, 1.65);
   font-size: var(--reader-fs, 19px);
+}
+
+.pr-tap-wrap .reader-block {
+  margin-bottom: 0.35rem;
+}
+
+.pr-tap-actions {
+  margin: 0 0 0.35rem;
+}
+
+.pr-tap-btn {
+  font-size: 0.82rem;
+  padding: 4px 0;
+}
+
+.pr-tap-translation {
+  margin: 0 0 0.5rem;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+  color: var(--fg);
+  line-height: var(--reader-lh, 1.65);
+  font-size: calc(var(--reader-fs, 19px) * 0.95);
+}
+
+.pr-tap-error {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
 }
 
 .reader-block h1,
@@ -384,6 +519,11 @@ body {
   font-size: 0.8rem;
   color: var(--muted);
   margin-top: 8px;
+}
+
+.hint code {
+  font-size: 0.92em;
+  word-break: break-all;
 }
 
 .import-progress {
@@ -478,11 +618,15 @@ body {
   flex-shrink: 0;
 }
 
-/* Full-sentence MT layer (MyMemory) */
+/* Full-sentence MT layer (MyMemory / bundled EPUB) */
 .reader-block .pr-sentence-mt {
   line-height: var(--reader-lh, 1.65);
   font-size: var(--reader-fs, 19px);
   color: color-mix(in srgb, var(--accent) 55%, var(--fg));
+}
+
+.reader-block .pr-sentence-mt--by-sentence .pr-sentence-seg {
+  display: inline;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -15,6 +15,7 @@ import {
   orderedLemmas,
   resolveLexiconKey,
   startParagraphIndexAfterNthFirstSeen,
+  startParagraphIndexAfterSightings,
   tokenizeLower,
 } from './progressiveBlendCore'
 
@@ -243,6 +244,35 @@ describe('startParagraphIndexAfterNthFirstSeen', () => {
     expect(
       startParagraphIndexAfterNthFirstSeen([{ paragraphIndex: 0, lemma: 'x' }], 0),
     ).toBe(Number.POSITIVE_INFINITY)
+  })
+})
+
+describe('startParagraphIndexAfterSightings', () => {
+  it('returns paragraph index after the block where the Nth lexicon hit occurs', () => {
+    const blocks = ['hello world', 'time and life', 'day breaks']
+    expect(startParagraphIndexAfterSightings(blocks, miniLex, 1)).toBe(2)
+    expect(startParagraphIndexAfterSightings(blocks, miniLex, 2)).toBe(2)
+    expect(startParagraphIndexAfterSightings(blocks, miniLex, 3)).toBe(3)
+  })
+
+  it('counts repeat appearances of the same lexicon word', () => {
+    const blocks = ['time time time', 'night']
+    expect(startParagraphIndexAfterSightings(blocks, miniLex, 3)).toBe(1)
+  })
+
+  it('returns Infinity when threshold is not reached', () => {
+    expect(startParagraphIndexAfterSightings(['no match'], miniLex, 1)).toBe(
+      Number.POSITIVE_INFINITY,
+    )
+    expect(startParagraphIndexAfterSightings(['time'], miniLex, 5)).toBe(
+      Number.POSITIVE_INFINITY,
+    )
+  })
+
+  it('returns Infinity for threshold <= 0', () => {
+    expect(startParagraphIndexAfterSightings(['time'], miniLex, 0)).toBe(
+      Number.POSITIVE_INFINITY,
+    )
   })
 })
 

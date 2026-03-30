@@ -57,6 +57,16 @@ describe('settingsStorage', () => {
       localStorage.setItem(KEY, JSON.stringify({ learnWordCap: Number.POSITIVE_INFINITY }))
       expect(loadUiSettings().learnWordCap).toBe(defaultSettings.learnWordCap)
     })
+
+    it('maps legacy sentenceTranslateAfterLemma to sentenceTranslateAfterSightings', () => {
+      localStorage.setItem(KEY, JSON.stringify({ sentenceTranslateAfterLemma: 7 }))
+      const s = loadUiSettings()
+      expect(s.sentenceTranslateAfterSightings).toBe(7)
+      saveUiSettings(s)
+      const raw = JSON.parse(localStorage.getItem(KEY)!) as Record<string, unknown>
+      expect(raw.sentenceTranslateAfterSightings).toBe(7)
+      expect(raw.sentenceTranslateAfterLemma).toBeUndefined()
+    })
   })
 
   describe('saveUiSettings', () => {

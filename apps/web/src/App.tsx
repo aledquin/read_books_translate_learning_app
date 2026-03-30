@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
 } from 'react'
@@ -19,14 +20,34 @@ import {
 } from './lib/bookBlend'
 import {
   buildBlendedHtmlPipeline,
+  sentenceTranslationIssueMessage,
   type BlendPhase,
 } from './lib/buildBlendedOutput'
 import { CURRENT_BLEND_VERSION } from './lib/blendVersion'
+import {
+  attachSpanishCompanionBlocks,
+  bookHasBundledSentenceEs,
+  orderEpubFilesEnglishFirst,
+} from './lib/epubCompanion'
 import { extractEpub } from './lib/epubExtract'
 import { getReplacementWordList } from './lib/progressiveBlendCore'
 import { applyTheme, readerFontClass } from './lib/readerUi'
+import {
+  isMyMemoryQuotaExceededError,
+  translatePlainEnglishParagraph,
+} from './lib/mymemoryTranslate'
+import {
+  formatImportLogArgs,
+  logReaderImport,
+  subscribeReaderImportLog,
+} from './lib/readerImportLog'
 import { loadUiSettings, saveUiSettings } from './lib/settingsStorage'
 import type { BookRecord, ReaderSettings } from './types/book'
+
+type TapTranslationEntry =
+  | { status: 'loading' }
+  | { status: 'ready'; text: string }
+  | { status: 'error'; message: string }
 
 export default function App() {
   const [ui, setUi] = useState<ReaderSettings>(() => loadUiSettings())
@@ -45,6 +66,36 @@ export default function App() {
   const [selectionHint, setSelectionHint] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [blendWarning, setBlendWarning] = useState<string | null>(null)
+  const [myMemoryQuotaNotice, setMyMemoryQuotaNotice] = useState<string | null>(null)
+  const [companionImportNotice, setCompanionImportNotice] = useState<string | null>(null)
+  /** Shown during import / re-blend so users see what the app is doing (also see DevTools console in dev). */
+  const [workStatusLine, setWorkStatusLine] = useState<string | null>(null)
+  /** Optional Spanish EPUB chosen first; English import button merges and clears this. */
+  const [stagedCompanionEpub, setStagedCompanionEpub] = useState<File | null>(null)
+  /** On-page copy of import/re-blend logs (console alone is easy to miss). */
+  const [importActivityLines, setImportActivityLines] = useState<string[]>([])
+  const quotaAlertOncePerBlendRef = useRef(false)
+
+  const appendImportActivityLine = useCallback((args: unknown[]) => {
+    setImportActivityLines((prev) => {
+      const ts = new Date().toLocaleTimeString()
+      const line = `${ts}  ${formatImportLogArgs(args)}`
+      return [...prev, line].slice(-80)
+    })
+  }, [])
+
+  useEffect(() => subscribeReaderImportLog(appendImportActivityLine), [appendImportActivityLine])
+
+  const notifyMyMemoryQuotaBlend = useCallback((message: string) => {
+    setMyMemoryQuotaNotice(message)
+    if (!quotaAlertOncePerBlendRef.current) {
+      quotaAlertOncePerBlendRef.current = true
+      window.alert(`MyMemory free quota or rate limit\n\n${message}`)
+    }
+  }, [])
+  const [tapTranslationByIndex, setTapTranslationByIndex] = useState<
+    Record<number, TapTranslationEntry>
+  >({})
   const [readerTab, setReaderTab] = useState<'read' | 'vocab'>('read')
   const [vocabFilter, setVocabFilter] = useState('')
 
@@ -89,6 +140,7 @@ export default function App() {
   useEffect(() => {
     setReaderTab('read')
     setVocabFilter('')
+    setTapTranslationByIndex({})
   }, [activeId])
 
   useEffect(() => {
@@ -96,6 +148,7 @@ export default function App() {
       setRecord(null)
       setLookupLex({})
       setBlendWarning(null)
+      setMyMemoryQuotaNotice(null)
       return
     }
     let cancel = false
@@ -126,25 +179,51 @@ export default function App() {
 
     let cancelled = false
     void (async () => {
+      logReaderImport('Re-blend started (settings differ from last saved blend)', {
+        bookId: record.id,
+        title: record.title,
+        blocks: record.blocks.length,
+      })
       setBusy(true)
       setProgress({ phase: 'blend', c: 0, t: record.blocks.length })
       setError(null)
       setBlendWarning(null)
+      quotaAlertOncePerBlendRef.current = false
+      setMyMemoryQuotaNotice(null)
       try {
+        setWorkStatusLine('Re-blend: loading lexicon…')
         const lex = await loadLexicon(ui.pairId)
         if (cancelled) return
         assertLexiconNonEmpty(lex)
+        logReaderImport('Re-blend: lexicon ready', Object.keys(lex).length, 'entries')
 
+        setWorkStatusLine('Re-blend: word-level mix, then optional full sentences…')
+        let reblendLoggedPhase: BlendPhase | null = null
         const blended = await buildBlendedHtmlPipeline(
           record.blocks,
           lex,
           ui,
           (phase, c, t) => {
-            if (!cancelled) setProgress({ phase, c, t })
+            if (!cancelled) {
+              setProgress({ phase, c, t })
+              if (phase !== reblendLoggedPhase) {
+                reblendLoggedPhase = phase
+                logReaderImport(`Re-blend phase → ${phase}`, { step: `${c}/${t}` })
+              } else if (phase === 'sentence' && t > 0 && (c === 1 || c === t || c % 5 === 0)) {
+                logReaderImport('Re-blend sentence progress', `${c}/${t}`)
+              }
+              if (phase === 'sentence') {
+                setWorkStatusLine(
+                  `Re-blend: full-sentence Spanish (${c}/${t} paragraphs in this phase)…`,
+                )
+              }
+            }
           },
+          { onMyMemoryQuotaLimited: notifyMyMemoryQuotaBlend },
         )
         if (cancelled) return
 
+        logReaderImport('Re-blend finished', { outputParagraphs: blended.length })
         const next: BookRecord = {
           ...record,
           blendedHtml: blended,
@@ -155,13 +234,20 @@ export default function App() {
         setRecord(next)
         if (!blendedOutputHasL2(blended) && blended.length > 0) {
           setBlendWarning(NO_L2_BLEND_WARNING)
+        } else {
+          setBlendWarning(null)
         }
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e))
+        if (!cancelled) {
+          logReaderImport('Re-blend failed', e instanceof Error ? e.message : String(e), e)
+          setError(e instanceof Error ? e.message : String(e))
+        }
       } finally {
         if (!cancelled) {
           setBusy(false)
           setProgress(null)
+          setWorkStatusLine(null)
+          logReaderImport('Re-blend handler finished (UI unlocked)')
         }
       }
     })()
@@ -174,34 +260,134 @@ export default function App() {
     ui.paceGamma,
     ui.learnWordCap,
     ui.sentenceTranslateEnabled,
-    ui.sentenceTranslateAfterLemma,
+    ui.sentenceTranslateAfterSightings,
+    ui.sentenceTranslateWhen,
+    ui.sentenceTranslateStyle,
+    notifyMyMemoryQuotaBlend,
   ])
 
-  const onPickFile = async (file: File | null) => {
-    if (!file) return
+  const onPickEpubFiles = async (files: File[]) => {
+    const ordered = orderEpubFilesEnglishFirst(files)
+    const enFile = ordered[0]
+    if (!enFile) {
+      logReaderImport('Import aborted: no English file in selection')
+      return
+    }
+    logReaderImport('——— New import ———')
+    logReaderImport('Import started', {
+      files: ordered.map((f) => f.name),
+      sentenceTranslateEnabled: ui.sentenceTranslateEnabled,
+      sentenceStyle: ui.sentenceTranslateStyle,
+    })
     setError(null)
     setBlendWarning(null)
+    setCompanionImportNotice(null)
+    quotaAlertOncePerBlendRef.current = false
+    setMyMemoryQuotaNotice(null)
     setBusy(true)
     setProgress({ phase: 'blend', c: 0, t: 1 })
     const id = crypto.randomUUID()
-    let title = file.name.replace(/\.epub$/i, '')
+    let title = enFile.name.replace(/\.epub$/i, '')
     let blocks: BookRecord['blocks'] = []
     try {
-      const buf = await file.arrayBuffer()
+      if (ordered.length === 2) {
+        logReaderImport('Using two EPUBs (after English-first sort)', {
+          english: ordered[0]?.name,
+          spanish: ordered[1]?.name,
+        })
+      }
+
+      setWorkStatusLine('Reading English EPUB (unpacking spine and paragraphs)…')
+      const buf = await enFile.arrayBuffer()
+      logReaderImport('English file read into memory', `${buf.byteLength} bytes`)
       const extracted = await extractEpub(buf)
+      logReaderImport('English EPUB parsed', {
+        title: extracted.title,
+        paragraphBlocks: extracted.blocks.length,
+      })
       if (extracted.blocks.length === 0) {
         throw new Error('No readable paragraphs in this EPUB.')
       }
       title = extracted.title
       blocks = extracted.blocks
+
+      const esFile = ordered[1]
+      if (esFile) {
+        setWorkStatusLine(
+          `English: ${blocks.length} paragraphs. Reading Spanish companion: ${esFile.name}…`,
+        )
+        const esBuf = await esFile.arrayBuffer()
+        logReaderImport('Spanish file read into memory', `${esBuf.byteLength} bytes`)
+        const esExtracted = await extractEpub(esBuf)
+        logReaderImport('Spanish EPUB parsed', {
+          title: esExtracted.title,
+          paragraphBlocks: esExtracted.blocks.length,
+        })
+        const {
+          blocks: merged,
+          mismatchWarning,
+          linkedParagraphCount,
+        } = attachSpanishCompanionBlocks(blocks, esExtracted.blocks)
+        blocks = merged
+        logReaderImport('Companion pairing done', {
+          linkedParagraphCount,
+          mismatchWarning: mismatchWarning ?? null,
+        })
+        if (linkedParagraphCount > 0) {
+          setCompanionImportNotice(
+            (mismatchWarning ? `${mismatchWarning} ` : '') +
+              `Bundled Spanish linked: ${linkedParagraphCount} paragraphs. ` +
+              'Enable Settings → Sentence translation (EN→ES) and choose Replace or Tap mode to use that text. ' +
+              'If sentence translation stays off, you only get lexicon word mixing—the companion EPUB is ignored for display.',
+          )
+        } else if (esExtracted.blocks.length > 0) {
+          setCompanionImportNotice(
+            (mismatchWarning ? `${mismatchWarning} ` : '') +
+              'Spanish file was read but no non-empty paragraphs could be paired (structure may differ from English). ' +
+              'Compare block counts in DevTools logs: [extractEpub] and [epubCompanion].',
+          )
+        } else if (mismatchWarning) {
+          setCompanionImportNotice(mismatchWarning)
+        }
+      } else {
+        setWorkStatusLine(`English only: ${blocks.length} paragraphs. Loading lexicon…`)
+        logReaderImport('No companion file — English only')
+      }
+
       setProgress({ phase: 'blend', c: 0, t: blocks.length })
 
+      setWorkStatusLine('Loading lexicon…')
       const lex = await loadLexicon(ui.pairId)
       assertLexiconNonEmpty(lex)
+      logReaderImport('Lexicon loaded', {
+        pairId: ui.pairId,
+        entries: Object.keys(lex).length,
+      })
 
-      const blended = await buildBlendedHtmlPipeline(blocks, lex, ui, (phase, c, t) =>
-        setProgress({ phase, c, t }),
+      setWorkStatusLine('Blending (word-level Spanish from lexicon, then optional full sentences)…')
+      let lastLoggedPhase: BlendPhase | null = null
+      const blended = await buildBlendedHtmlPipeline(
+        blocks,
+        lex,
+        ui,
+        (phase, c, t) => {
+          setProgress({ phase, c, t })
+          if (phase !== lastLoggedPhase) {
+            lastLoggedPhase = phase
+            logReaderImport(`Pipeline phase → ${phase}`, { step: `${c}/${t}` })
+          } else if (phase === 'sentence' && t > 0 && (c === 1 || c === t || c % 5 === 0)) {
+            logReaderImport('Sentence replacement progress', `${c}/${t}`)
+          }
+          if (phase === 'sentence') {
+            setWorkStatusLine(`Full-sentence Spanish phase: ${c}/${t} paragraphs…`)
+          }
+        },
+        { onMyMemoryQuotaLimited: notifyMyMemoryQuotaBlend },
       )
+      logReaderImport('Blend pipeline finished', {
+        outputParagraphs: blended.length,
+        sentenceTranslateEnabled: ui.sentenceTranslateEnabled,
+      })
 
       const rec: BookRecord = {
         id,
@@ -212,14 +398,17 @@ export default function App() {
         blendVersion: CURRENT_BLEND_VERSION,
         settingsSnapshot: snapshotForBook(ui),
       }
+      setWorkStatusLine('Saving book to your device…')
       await db.saveBook(rec)
       await refreshLibrary()
       setBlendWarning(
         !blendedOutputHasL2(blended) && blended.length > 0 ? NO_L2_BLEND_WARNING : null,
       )
       setActiveId(id)
+      logReaderImport('Import complete — book opened', { title, id })
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
+      logReaderImport('Import failed', message, e)
       setError(message)
       if (blocks.length > 0) {
         await db.saveBook({
@@ -233,8 +422,11 @@ export default function App() {
         await refreshLibrary()
       }
     } finally {
+      setStagedCompanionEpub(null)
       setBusy(false)
       setProgress(null)
+      setWorkStatusLine(null)
+      logReaderImport('Import handler finished (UI unlocked)')
     }
   }
 
@@ -260,6 +452,16 @@ export default function App() {
       ? (record.blendedHtml ?? record.blocks.map((b) => b.html))
       : []
 
+  const showTapSentenceUi =
+    Boolean(showReader) &&
+    ui.sentenceTranslateEnabled &&
+    ui.pairId === 'en-es' &&
+    ui.sentenceTranslateStyle === 'tap_to_reveal'
+
+  const sentenceReplaceInPlace =
+    ui.sentenceTranslateStyle === 'replace_paragraph' ||
+    ui.sentenceTranslateStyle === 'replace_sentence'
+
   const replacementRows = useMemo(() => {
     if (!record || Object.keys(lookupLex).length === 0) return []
     return getReplacementWordList(
@@ -268,6 +470,29 @@ export default function App() {
       ui.learnWordCap,
     )
   }, [record, lookupLex, ui.learnWordCap])
+
+  const sentenceHint = useMemo(() => {
+    if (!record?.blendedHtml?.length) return null
+    if (Object.keys(lookupLex).length === 0) return null
+    return sentenceTranslationIssueMessage(
+      ui,
+      record.blocks.map((b) => b.plain),
+      lookupLex,
+      record.blendedHtml,
+    )
+  }, [
+    record,
+    lookupLex,
+    ui.sentenceTranslateEnabled,
+    ui.pairId,
+    ui.sentenceTranslateAfterSightings,
+    ui.sentenceTranslateWhen,
+    ui.sentenceTranslateStyle,
+  ])
+
+  useEffect(() => {
+    setTapTranslationByIndex({})
+  }, [ui.sentenceTranslateEnabled, ui.sentenceTranslateStyle])
 
   const filteredReplacements = useMemo(() => {
     const q = vocabFilter.trim().toLowerCase()
@@ -305,15 +530,31 @@ export default function App() {
       </header>
 
       {error ? <p className="hint">{error}</p> : null}
+      {companionImportNotice ? (
+        <p className="hint blend-warning" role="status">
+          {companionImportNotice}
+        </p>
+      ) : null}
       {blendWarning ? <p className="hint blend-warning">{blendWarning}</p> : null}
+      {myMemoryQuotaNotice ? (
+        <p className="hint blend-warning" role="alert">
+          <strong>MyMemory quota:</strong> {myMemoryQuotaNotice}
+        </p>
+      ) : null}
+      {sentenceHint ? <p className="hint blend-warning">{sentenceHint}</p> : null}
 
       {busy && !showReader ? (
         <div className="import-progress">
           <p className="hint">
             {progress?.phase === 'sentence'
-              ? 'Translating sentences (MyMemory free tier, internet required)…'
+              ? 'Applying full-sentence Spanish (bundled EPUB text and/or translation API)…'
               : 'Extracting and blending…'}
           </p>
+          {workStatusLine ? (
+            <p className="hint import-status-detail" role="status" aria-live="polite">
+              {workStatusLine}
+            </p>
+          ) : null}
           {progress ? <ProgressBar current={progress.c} total={progress.t} /> : null}
         </div>
       ) : null}
@@ -326,6 +567,12 @@ export default function App() {
               {busy
                 ? ` — ${progress?.phase === 'sentence' ? 'sentences' : 'blending'} ${progress?.c ?? 0}/${progress?.t ?? '…'}`
                 : null}
+              {busy && workStatusLine ? (
+                <>
+                  <br />
+                  <span className="reader-work-status">{workStatusLine}</span>
+                </>
+              ) : null}
             </div>
             <button
               type="button"
@@ -366,8 +613,38 @@ export default function App() {
                     Dotted underline: first time that word appears in Spanish. Later in the book,
                     more of each paragraph shifts to Spanish; the last sections use your full word
                     list.
-                    {ui.sentenceTranslateEnabled && ui.pairId === 'en-es'
-                      ? ' After enough first-seen lemmas, later blocks may show full Spanish sentences (MyMemory).'
+                    {ui.pairId === 'en-es' && !ui.sentenceTranslateEnabled
+                      ? ' Turn on “Sentence translation” in Settings for full sentences (replace and/or tap under each paragraph).'
+                      : null}
+                    {bookHasBundledSentenceEs(record.blocks) ? (
+                      <>
+                        {' '}
+                        This book includes a Spanish EPUB paired at import: sentence modes use that
+                        text when a paragraph matches (no API for those blocks).
+                      </>
+                    ) : null}
+                    {ui.sentenceTranslateEnabled &&
+                    ui.pairId === 'en-es' &&
+                    ui.sentenceTranslateStyle === 'tap_to_reveal'
+                      ? bookHasBundledSentenceEs(record.blocks)
+                        ? ' Tap “Show Spanish” for paragraphs without bundled text (others show instantly).'
+                        : ' Tap “Show Spanish” under a paragraph to load translation (internet).'
+                      : null}
+                    {ui.sentenceTranslateEnabled &&
+                    ui.pairId === 'en-es' &&
+                    sentenceReplaceInPlace &&
+                    ui.sentenceTranslateWhen === 'from_beginning'
+                      ? ui.sentenceTranslateStyle === 'replace_sentence'
+                        ? ' Replace-by-sentence: after blending, each paragraph switches to Spanish one sentence at a time (same rules as Settings).'
+                        : ' Replace paragraph: blocks switch to full Spanish from the start of the book (after blending).'
+                      : null}
+                    {ui.sentenceTranslateEnabled &&
+                    ui.pairId === 'en-es' &&
+                    sentenceReplaceInPlace &&
+                    ui.sentenceTranslateWhen === 'after_lexicon_sightings'
+                      ? ui.sentenceTranslateStyle === 'replace_sentence'
+                        ? ` Replace-by-sentence: after ${ui.sentenceTranslateAfterSightings} lexicon word sightings, later paragraphs use per-sentence Spanish.`
+                        : ` Replace paragraph: after ${ui.sentenceTranslateAfterSightings} lexicon word sightings, later blocks switch to full Spanish.`
                       : null}
                   </p>
                 ) : null}
@@ -384,13 +661,104 @@ export default function App() {
                   {record.blocks.map((b, i) => {
                     const prev = record.blocks[i - 1]
                     const showCh = !prev || prev.chapterIndex !== b.chapterIndex
+                    const html = readerHtmls[i] ?? ''
+                    const plainTrim = b.plain.trim()
+                    const tap = tapTranslationByIndex[b.globalIndex]
+                    const tapPlain = showTapSentenceUi && plainTrim
                     return (
                       <div key={b.globalIndex}>
                         {showCh ? <div className="chapter-label">{b.chapterTitle}</div> : null}
-                        <div
-                          className="reader-block"
-                          dangerouslySetInnerHTML={{ __html: readerHtmls[i] ?? '' }}
-                        />
+                        {tapPlain ? (
+                          <div className="reader-block-wrap pr-tap-wrap">
+                            <div
+                              className="reader-block"
+                              dangerouslySetInnerHTML={{ __html: html }}
+                            />
+                            <div className="pr-tap-actions">
+                              <button
+                                type="button"
+                                className="btn-link pr-tap-btn"
+                                disabled={tap?.status === 'loading'}
+                                aria-expanded={tap?.status === 'ready'}
+                                aria-label={
+                                  tap?.status === 'ready'
+                                    ? 'Hide Spanish translation'
+                                    : 'Show Spanish translation'
+                                }
+                                onClick={() => {
+                                  if (tap?.status === 'ready') {
+                                    setTapTranslationByIndex((p) => {
+                                      const n = { ...p }
+                                      delete n[b.globalIndex]
+                                      return n
+                                    })
+                                    return
+                                  }
+                                  if (tap?.status === 'loading') return
+                                  void (async () => {
+                                    const bundledTap = b.plainEs?.replace(/\s+/g, ' ').trim() ?? ''
+                                    if (bundledTap) {
+                                      setTapTranslationByIndex((p) => ({
+                                        ...p,
+                                        [b.globalIndex]: { status: 'ready', text: bundledTap },
+                                      }))
+                                      return
+                                    }
+                                    setTapTranslationByIndex((p) => ({
+                                      ...p,
+                                      [b.globalIndex]: { status: 'loading' },
+                                    }))
+                                    try {
+                                      const text = await translatePlainEnglishParagraph(plainTrim)
+                                      setTapTranslationByIndex((p) => ({
+                                        ...p,
+                                        [b.globalIndex]: { status: 'ready', text },
+                                      }))
+                                    } catch (e) {
+                                      if (isMyMemoryQuotaExceededError(e)) {
+                                        setMyMemoryQuotaNotice(e.message)
+                                        window.alert(
+                                          `MyMemory free quota or rate limit\n\n${e.message}`,
+                                        )
+                                      }
+                                      setTapTranslationByIndex((p) => ({
+                                        ...p,
+                                        [b.globalIndex]: {
+                                          status: 'error',
+                                          message:
+                                            e instanceof Error ? e.message : String(e),
+                                        },
+                                      }))
+                                    }
+                                  })()
+                                }}
+                              >
+                                {tap?.status === 'loading'
+                                  ? 'Translating…'
+                                  : tap?.status === 'ready'
+                                    ? 'Hide Spanish'
+                                    : tap?.status === 'error'
+                                      ? 'Retry Spanish'
+                                      : 'Show Spanish'}
+                              </button>
+                            </div>
+                            {tap?.status === 'ready' ? (
+                              <p className="pr-tap-translation" lang="es">
+                                {tap.text}
+                              </p>
+                            ) : null}
+                            {tap?.status === 'error' ? (
+                              <p className="hint pr-tap-error" role="alert">
+                                {tap.message}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <div
+                            className="reader-block"
+                            dangerouslySetInnerHTML={{ __html: html }}
+                          />
+                        )}
                       </div>
                     )
                   })}
@@ -433,19 +801,100 @@ export default function App() {
         </>
       ) : (
         <>
+          <div className="library-import-row">
+            <label className="btn file-label file-label-secondary">
+              <input
+                type="file"
+                accept=".epub,application/epub+zip"
+                disabled={busy}
+                onChange={(e) => {
+                  const input = e.currentTarget
+                  // FileList is live — snapshot before clearing value or it becomes empty.
+                  const snapshot = input.files ? Array.from(input.files) : []
+                  const f = snapshot[0] ?? null
+                  input.value = ''
+                  setCompanionImportNotice(null)
+                  setStagedCompanionEpub(f)
+                  logReaderImport('(picker) Spanish companion', f ? `staged: ${f.name}` : 'cleared')
+                }}
+              />
+              Spanish EPUB (optional)
+            </label>
+            {stagedCompanionEpub ? (
+              <div className="hint library-staged">
+                Staged companion: <strong>{stagedCompanionEpub.name}</strong>
+                <button
+                  type="button"
+                  className="btn-link library-staged-clear"
+                  disabled={busy}
+                  onClick={() => setStagedCompanionEpub(null)}
+                >
+                  Clear
+                </button>
+              </div>
+            ) : (
+              <p className="hint library-staged-placeholder">
+                Optional: choose the Spanish edition first, then import English below (correct order
+                guaranteed). Or use one multi-select: names like <code>*.es.epub</code> are sorted so
+                English is read first.
+              </p>
+            )}
+          </div>
           <label className="btn file-label">
             <input
               type="file"
               accept=".epub,application/epub+zip"
+              multiple
               disabled={busy}
-              onChange={(e) => void onPickFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                const input = e.currentTarget
+                // FileList is live — clearing `value` empties it immediately; copy Files first.
+                const picked = input.files ? Array.from(input.files).slice(0, 2) : []
+                input.value = ''
+                logReaderImport('(picker) English EPUB dialog closed', {
+                  selectedCount: picked.length,
+                  names: picked.map((x) => x.name),
+                })
+                if (picked.length === 0) {
+                  logReaderImport(
+                    '(picker) No file returned — if you did not cancel, try again (browser quirk).',
+                  )
+                  return
+                }
+                const merged =
+                  picked.length >= 2
+                    ? orderEpubFilesEnglishFirst(picked)
+                    : stagedCompanionEpub
+                      ? orderEpubFilesEnglishFirst([picked[0]!, stagedCompanionEpub])
+                      : picked
+                logReaderImport('(picker) Starting import with files', merged.map((x) => x.name))
+                void onPickEpubFiles(merged)
+              }}
             />
-            Import EPUB
+            Import English EPUB
           </label>
           <p className="hint">
-            English source text plus bundled EN→ES glosses. Each import is extracted and blended on
-            your device before it opens (open source: compromise). No LLM API.
+            English source + bundled lexicon glosses. If you staged a Spanish file, it is merged by
+            paragraph order. Full-sentence modes (Settings) use bundled Spanish and skip APIs for
+            matching blocks. Import steps also appear below and in the browser console as{' '}
+            <code>[reader-import]</code> (open DevTools → Console; enable <strong>Verbose</strong> if
+            you do not see <code>console.log</code> lines).
           </p>
+          <details className="import-activity" open>
+            <summary>Import activity (on-page log)</summary>
+            <pre className="import-activity-pre" role="log" aria-live="polite">
+              {importActivityLines.length > 0
+                ? importActivityLines.join('\n')
+                : 'Pick a file above — lines appear here and in the console as [reader-import].'}
+            </pre>
+            <button
+              type="button"
+              className="btn-link import-activity-clear"
+              onClick={() => setImportActivityLines([])}
+            >
+              Clear on-page log
+            </button>
+          </details>
           <ul className="list library-list" style={{ marginTop: 16 }}>
             {books.map((b) => (
               <li key={b.id} className="library-row">

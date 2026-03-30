@@ -357,6 +357,36 @@ export function startParagraphIndexAfterNthFirstSeen(
 }
 
 /**
+ * First paragraph index for sentence translation: the paragraph **after** the one where
+ * cumulative lexicon-matching tokens (document order) reach `threshold` (each hit counts).
+ */
+export function startParagraphIndexAfterSightings(
+  plainBlocks: string[],
+  lexicon: Record<string, string>,
+  threshold: number,
+): number {
+  if (threshold <= 0) return Number.POSITIVE_INFINITY
+  let count = 0
+  const re = /\b([a-zA-Z'-]+)\b/g
+  for (let p = 0; p < plainBlocks.length; p++) {
+    const plain = plainBlocks[p] ?? ''
+    re.lastIndex = 0
+    let m: RegExpExecArray | null
+    while ((m = re.exec(plain)) !== null) {
+      const fullWord = m[0]!
+      const d = nlp(fullWord)
+      const tags = normalizeTags(d.json()[0]?.terms?.[0]?.tags)
+      const key = resolveLexiconKey(fullWord, tags, lexicon)
+      if (key && lexicon[key]) {
+        count++
+        if (count >= threshold) return p + 1
+      }
+    }
+  }
+  return Number.POSITIVE_INFINITY
+}
+
+/**
  * Run progressive blending over aligned HTML / plain blocks.
  */
 export function blendProgressiveHtml(
