@@ -567,6 +567,35 @@ body {
   font-size: 0.95rem;
 }
 
+.word-pop-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
+}
+
+.word-pop-en {
+  font-weight: 600;
+}
+
+.word-pop-arrow {
+  color: var(--muted);
+}
+
+.word-pop-es {
+  color: color-mix(in srgb, var(--accent) 70%, var(--fg));
+}
+
+.word-pop-grammar {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+}
+
+.word-pop-dismiss {
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+
 .font-serif {
   font-family: Georgia, 'Times New Roman', serif;
 }
@@ -591,6 +620,11 @@ body {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   padding: 0 0.06em;
   border-radius: 2px;
+}
+
+.reader-block .pr-l2-article {
+  color: color-mix(in srgb, var(--accent) 62%, var(--fg));
+  font-weight: 500;
 }
 
 .blend-warning {

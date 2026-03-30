@@ -40,9 +40,6 @@ export function loadBundledEnEsLexicon(): Record<string, string> {
 /** First Spanish paragraph in the fixture (known stable string for assertions). */
 export const FIXTURE_FIRST_SPANISH_PHRASE = 'El tiempo y el día se encuentran en esta línea'
 
-/** English opening (progressive mix still contains English surface). */
-export const FIXTURE_FIRST_ENGLISH_SURFACE = 'Time and day'
-
 type BlocksFixtureFile = {
   title: string
   blocks: ContentBlock[]

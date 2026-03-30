@@ -3,6 +3,7 @@ import {
   activeCountForParagraph,
   activeSetForParagraph,
   applyLearnCap,
+  articleEnToEsSurface,
   blendHtmlBlock,
   blendProgressiveHtml,
   bookFreq,
@@ -390,7 +391,28 @@ describe('blendHtmlBlock', () => {
   })
 })
 
+describe('articleEnToEsSurface', () => {
+  it('maps the and a/an to el/un', () => {
+    expect(articleEnToEsSurface('The')).toBe('el')
+    expect(articleEnToEsSurface('a')).toBe('un')
+    expect(articleEnToEsSurface('An')).toBe('un')
+  })
+})
+
 describe('blendProgressiveHtml', () => {
+  it('translates a trailing article before an active lexicon noun (blendHtmlBlock)', () => {
+    const html = blendHtmlBlock(
+      '<p>See the time.</p>',
+      new Set(['time']),
+      { time: 'tiempo' },
+      new Set(),
+    )
+    expect(html).toContain('pr-l2-article')
+    expect(html).toContain('data-pr-gloss-en="the"')
+    expect(html).toContain('el')
+    expect(html).toContain('tiempo')
+  })
+
   it('inserts Spanish spans with lang="es" when lemmas are active', () => {
     const htmlBlocks = ['<p>time and life together.</p>']
     const plainBlocks = ['time and life together.']

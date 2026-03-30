@@ -17,10 +17,17 @@ export const READER_FEATURE_SAMPLE_EPUB_ES = resolve(
   '../../fixtures/epub/reader-feature-sample.es.epub',
 )
 
+/** Paired blocks for tests (`npm run epub:feature-sample`). */
+export const READER_FEATURE_SAMPLE_BLOCKS_JSON = resolve(
+  process.cwd(),
+  '../../fixtures/epub/reader-feature-sample.blocks.json',
+)
+
 describe('Reader feature sample EPUB (fixture)', () => {
   it('English and Spanish fixture files are present', () => {
     expect(existsSync(READER_FEATURE_SAMPLE_EPUB)).toBe(true)
     expect(existsSync(READER_FEATURE_SAMPLE_EPUB_ES)).toBe(true)
+    expect(existsSync(READER_FEATURE_SAMPLE_BLOCKS_JSON)).toBe(true)
   })
 
   it('is a valid EPUB zip with two chapters and mixed HTML (no extractEpub — avoids CI timeouts)', async () => {

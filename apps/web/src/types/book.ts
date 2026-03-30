@@ -33,6 +33,21 @@ export interface ReaderSettings {
   sentenceTranslateWhen: SentenceTranslateWhen
   sentenceTranslateStyle: SentenceTranslateStyle
   sentenceTranslateAfterSightings: number
+  /** Save scroll position per book and restore when reopening. */
+  readingCheckpointEnabled: boolean
+  /**
+   * When hovering or tapping a glossed word, show a compact compromise POS tag line (English).
+   * Not a full dictionary definition.
+   */
+  showWordGrammarInTooltip: boolean
+}
+
+/** Saved reading position for a book (IndexedDB). */
+export type ReadingCheckpoint = {
+  scrollTop: number
+  /** Best-effort: first visible block when saved (for debugging / future TOC). */
+  anchorBlockGlobalIndex?: number
+  savedAt: number
 }
 
 export const defaultSettings: ReaderSettings = {
@@ -47,6 +62,8 @@ export const defaultSettings: ReaderSettings = {
   sentenceTranslateWhen: 'after_lexicon_sightings',
   sentenceTranslateStyle: 'replace_paragraph',
   sentenceTranslateAfterSightings: 3,
+  readingCheckpointEnabled: true,
+  showWordGrammarInTooltip: false,
 }
 
 export interface ContentBlock {
@@ -72,4 +89,6 @@ export interface BookRecord {
   /** Matches `CURRENT_BLEND_VERSION`; missing/older forces re-blend. */
   blendVersion?: number
   settingsSnapshot: ReaderSettings
+  /** Last scroll position in the reader (optional). */
+  readingCheckpoint?: ReadingCheckpoint
 }

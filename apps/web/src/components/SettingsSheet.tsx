@@ -116,6 +116,34 @@ export function SettingsSheet({ draft, onChange, onApply, onCancel }: Props) {
           </div>
         </div>
 
+        <div className="field field-checkbox">
+          <label>
+            <input
+              type="checkbox"
+              checked={draft.readingCheckpointEnabled}
+              onChange={(e) => patch({ readingCheckpointEnabled: e.target.checked })}
+            />{' '}
+            Save reading position per book
+          </label>
+          <div className="hint">
+            Scroll position is stored on your device when you read; reopening the book restores it.
+          </div>
+        </div>
+        <div className="field field-checkbox">
+          <label>
+            <input
+              type="checkbox"
+              checked={draft.showWordGrammarInTooltip}
+              onChange={(e) => patch({ showWordGrammarInTooltip: e.target.checked })}
+            />{' '}
+            Show grammar tags in word hints
+          </label>
+          <div className="hint">
+            When you hover or tap a mixed Spanish word (or select an English word), add a short
+            compromise tag line (e.g. Noun, Verb). Not a full dictionary definition.
+          </div>
+        </div>
+
         {draft.pairId === 'en-es' ? (
           <>
             <div className="field field-checkbox">

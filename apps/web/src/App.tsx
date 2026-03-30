@@ -1,11 +1,5 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ReaderView } from './components/ReaderView'
 import { SettingsSheet } from './components/SettingsSheet'
 import { ProgressBar } from './components/ProgressBar'
 import * as db from './lib/db'
@@ -31,18 +25,14 @@ import {
 } from './lib/epubCompanion'
 import { extractEpub } from './lib/epubExtract'
 import { getReplacementWordList } from './lib/progressiveBlendCore'
-import { applyTheme, readerFontClass } from './lib/readerUi'
-import {
-  isMyMemoryQuotaExceededError,
-  translatePlainEnglishParagraph,
-} from './lib/mymemoryTranslate'
+import { applyTheme } from './lib/readerUi'
 import {
   formatImportLogArgs,
   logReaderImport,
   subscribeReaderImportLog,
 } from './lib/readerImportLog'
 import { loadUiSettings, saveUiSettings } from './lib/settingsStorage'
-import type { BookRecord, ReaderSettings } from './types/book'
+import type { BookRecord, ReaderSettings, ReadingCheckpoint } from './types/book'
 
 type TapTranslationEntry =
   | { status: 'loading' }
@@ -63,7 +53,6 @@ export default function App() {
     c: number
     t: number
   } | null>(null)
-  const [selectionHint, setSelectionHint] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [blendWarning, setBlendWarning] = useState<string | null>(null)
   const [myMemoryQuotaNotice, setMyMemoryQuotaNotice] = useState<string | null>(null)
@@ -75,6 +64,20 @@ export default function App() {
   /** On-page copy of import/re-blend logs (console alone is easy to miss). */
   const [importActivityLines, setImportActivityLines] = useState<string[]>([])
   const quotaAlertOncePerBlendRef = useRef(false)
+  const recordRef = useRef<BookRecord | null>(null)
+  recordRef.current = record
+
+  const persistCheckpoint = useCallback(
+    (cp: ReadingCheckpoint) => {
+      if (!ui.readingCheckpointEnabled) return
+      const r = recordRef.current
+      if (!r) return
+      const next = { ...r, readingCheckpoint: cp }
+      setRecord(next)
+      void db.saveBook(next)
+    },
+    [ui.readingCheckpointEnabled],
+  )
 
   const appendImportActivityLine = useCallback((args: unknown[]) => {
     setImportActivityLines((prev) => {
@@ -430,22 +433,6 @@ export default function App() {
     }
   }
 
-  const onReaderMouseUp = () => {
-    const sel = window.getSelection()
-    const raw = sel?.toString().trim() ?? ''
-    if (!raw || raw.includes(' ')) {
-      setSelectionHint(null)
-      return
-    }
-    const w = raw.replace(/[^a-zA-Z'-]/g, '')
-    if (!w) {
-      setSelectionHint(null)
-      return
-    }
-    const hit = lookupLex[w.toLowerCase()]
-    setSelectionHint(hit ? `${w} → ${hit}` : null)
-  }
-
   const showReader = Boolean(activeId && record)
   const readerHtmls =
     showReader && record
@@ -604,166 +591,24 @@ export default function App() {
           </div>
           <div className="reader-body">
             {readerTab === 'read' ? (
-              <>
-                {busy && !record.blendedHtml && progress ? (
-                  <ProgressBar current={progress.c} total={progress.t} />
-                ) : null}
-                {record.blendedHtml ? (
-                  <p className="hint pr-legend">
-                    Dotted underline: first time that word appears in Spanish. Later in the book,
-                    more of each paragraph shifts to Spanish; the last sections use your full word
-                    list.
-                    {ui.pairId === 'en-es' && !ui.sentenceTranslateEnabled
-                      ? ' Turn on “Sentence translation” in Settings for full sentences (replace and/or tap under each paragraph).'
-                      : null}
-                    {bookHasBundledSentenceEs(record.blocks) ? (
-                      <>
-                        {' '}
-                        This book includes a Spanish EPUB paired at import: sentence modes use that
-                        text when a paragraph matches (no API for those blocks).
-                      </>
-                    ) : null}
-                    {ui.sentenceTranslateEnabled &&
-                    ui.pairId === 'en-es' &&
-                    ui.sentenceTranslateStyle === 'tap_to_reveal'
-                      ? bookHasBundledSentenceEs(record.blocks)
-                        ? ' Tap “Show Spanish” for paragraphs without bundled text (others show instantly).'
-                        : ' Tap “Show Spanish” under a paragraph to load translation (internet).'
-                      : null}
-                    {ui.sentenceTranslateEnabled &&
-                    ui.pairId === 'en-es' &&
-                    sentenceReplaceInPlace &&
-                    ui.sentenceTranslateWhen === 'from_beginning'
-                      ? ui.sentenceTranslateStyle === 'replace_sentence'
-                        ? ' Replace-by-sentence: after blending, each paragraph switches to Spanish one sentence at a time (same rules as Settings).'
-                        : ' Replace paragraph: blocks switch to full Spanish from the start of the book (after blending).'
-                      : null}
-                    {ui.sentenceTranslateEnabled &&
-                    ui.pairId === 'en-es' &&
-                    sentenceReplaceInPlace &&
-                    ui.sentenceTranslateWhen === 'after_lexicon_sightings'
-                      ? ui.sentenceTranslateStyle === 'replace_sentence'
-                        ? ` Replace-by-sentence: each lexicon word must appear ${ui.sentenceTranslateAfterSightings} times before a sentence containing it switches to full Spanish; other sentences stay word-by-word mixed.`
-                        : ` Replace paragraph: after ${ui.sentenceTranslateAfterSightings} lexicon word sightings, later blocks switch to full Spanish.`
-                      : null}
-                  </p>
-                ) : null}
-                <article
-                  className={`reader-scroll ${readerFontClass(ui.fontFamily)}`}
-                  style={
-                    {
-                      '--reader-fs': `${ui.fontSizePx}px`,
-                      '--reader-lh': String(ui.lineHeight),
-                    } as CSSProperties
-                  }
-                  onMouseUp={onReaderMouseUp}
-                >
-                  {record.blocks.map((b, i) => {
-                    const prev = record.blocks[i - 1]
-                    const showCh = !prev || prev.chapterIndex !== b.chapterIndex
-                    const html = readerHtmls[i] ?? ''
-                    const plainTrim = b.plain.trim()
-                    const tap = tapTranslationByIndex[b.globalIndex]
-                    const tapPlain = showTapSentenceUi && plainTrim
-                    return (
-                      <div key={b.globalIndex}>
-                        {showCh ? <div className="chapter-label">{b.chapterTitle}</div> : null}
-                        {tapPlain ? (
-                          <div className="reader-block-wrap pr-tap-wrap">
-                            <div
-                              className="reader-block"
-                              dangerouslySetInnerHTML={{ __html: html }}
-                            />
-                            <div className="pr-tap-actions">
-                              <button
-                                type="button"
-                                className="btn-link pr-tap-btn"
-                                disabled={tap?.status === 'loading'}
-                                aria-expanded={tap?.status === 'ready'}
-                                aria-label={
-                                  tap?.status === 'ready'
-                                    ? 'Hide Spanish translation'
-                                    : 'Show Spanish translation'
-                                }
-                                onClick={() => {
-                                  if (tap?.status === 'ready') {
-                                    setTapTranslationByIndex((p) => {
-                                      const n = { ...p }
-                                      delete n[b.globalIndex]
-                                      return n
-                                    })
-                                    return
-                                  }
-                                  if (tap?.status === 'loading') return
-                                  void (async () => {
-                                    const bundledTap = b.plainEs?.replace(/\s+/g, ' ').trim() ?? ''
-                                    if (bundledTap) {
-                                      setTapTranslationByIndex((p) => ({
-                                        ...p,
-                                        [b.globalIndex]: { status: 'ready', text: bundledTap },
-                                      }))
-                                      return
-                                    }
-                                    setTapTranslationByIndex((p) => ({
-                                      ...p,
-                                      [b.globalIndex]: { status: 'loading' },
-                                    }))
-                                    try {
-                                      const text = await translatePlainEnglishParagraph(plainTrim)
-                                      setTapTranslationByIndex((p) => ({
-                                        ...p,
-                                        [b.globalIndex]: { status: 'ready', text },
-                                      }))
-                                    } catch (e) {
-                                      if (isMyMemoryQuotaExceededError(e)) {
-                                        setMyMemoryQuotaNotice(e.message)
-                                        window.alert(
-                                          `MyMemory free quota or rate limit\n\n${e.message}`,
-                                        )
-                                      }
-                                      setTapTranslationByIndex((p) => ({
-                                        ...p,
-                                        [b.globalIndex]: {
-                                          status: 'error',
-                                          message:
-                                            e instanceof Error ? e.message : String(e),
-                                        },
-                                      }))
-                                    }
-                                  })()
-                                }}
-                              >
-                                {tap?.status === 'loading'
-                                  ? 'Translating…'
-                                  : tap?.status === 'ready'
-                                    ? 'Hide Spanish'
-                                    : tap?.status === 'error'
-                                      ? 'Retry Spanish'
-                                      : 'Show Spanish'}
-                              </button>
-                            </div>
-                            {tap?.status === 'ready' ? (
-                              <p className="pr-tap-translation" lang="es">
-                                {tap.text}
-                              </p>
-                            ) : null}
-                            {tap?.status === 'error' ? (
-                              <p className="hint pr-tap-error" role="alert">
-                                {tap.message}
-                              </p>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <div
-                            className="reader-block"
-                            dangerouslySetInnerHTML={{ __html: html }}
-                          />
-                        )}
-                      </div>
-                    )
-                  })}
-                </article>
-              </>
+              <ReaderView
+                key={record.id}
+                record={record}
+                ui={ui}
+                readerHtmls={readerHtmls}
+                lookupLex={lookupLex}
+                busy={busy}
+                progress={progress}
+                showTapSentenceUi={showTapSentenceUi}
+                sentenceReplaceInPlace={sentenceReplaceInPlace}
+                bookHasBundledSentenceEs={bookHasBundledSentenceEs(record.blocks)}
+                tapTranslationByIndex={tapTranslationByIndex}
+                setTapTranslationByIndex={setTapTranslationByIndex}
+                onPersistCheckpoint={persistCheckpoint}
+                onMyMemoryQuota={(msg) => {
+                  setMyMemoryQuotaNotice(msg)
+                }}
+              />
             ) : (
               <div className="vocab-panel">
                 <p className="hint vocab-panel-intro">
@@ -915,12 +760,6 @@ export default function App() {
           </ul>
         </>
       )}
-
-      {selectionHint ? (
-        <div className="word-pop" role="status">
-          {selectionHint}
-        </div>
-      ) : null}
 
       {settingsOpen && draftUi ? (
         <SettingsSheet

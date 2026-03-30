@@ -184,6 +184,23 @@ export function activeSetForParagraph(
   return active
 }
 
+/** On `span[lang=es]` from progressive blend: original English surface (for tooltips). */
+export const ATTR_PR_GLOSS_EN = 'data-pr-gloss-en'
+
+/** MVP EN→ES articles before a lexicon noun (Spanish gender not inferred). */
+export function articleEnToEsSurface(articleEn: string): string {
+  const l = articleEn.trim().toLowerCase()
+  if (l === 'the') return 'el'
+  if (l === 'a' || l === 'an') return 'un'
+  return articleEn
+}
+
+function isArticleWord(surface: string): boolean {
+  return /^(the|a|an)$/i.test(surface)
+}
+
+type WordHit = { word: string; start: number; end: number }
+
 function replaceTokensInTextNode(
   textNode: Text,
   doc: Document,
@@ -195,18 +212,65 @@ function replaceTokensInTextNode(
   if (!parent) return
   const text = textNode.data
   const frag = doc.createDocumentFragment()
-  let lastIndex = 0
   const re = /\b([a-zA-Z'-]+)\b/g
+  const hits: WordHit[] = []
   let m: RegExpExecArray | null
   while ((m = re.exec(text)) !== null) {
-    const fullWord = m[0]
-    const start = m.index
+    hits.push({ word: m[0]!, start: m.index, end: m.index + m[0]!.length })
+  }
+
+  const lexKeyAt = (fullWord: string): string | null => {
+    const d = nlp(fullWord)
+    const tags = normalizeTags(d.json()[0]?.terms?.[0]?.tags)
+    return resolveLexiconKey(fullWord, tags, lexicon)
+  }
+
+  let lastIndex = 0
+  for (let i = 0; i < hits.length; i++) {
+    const { word: fullWord, start, end } = hits[i]!
+    const key = lexKeyAt(fullWord)
+    const willReplace = Boolean(key && active.has(key) && lexicon[key])
+    const prev = i > 0 ? hits[i - 1]! : null
+    const pairArticle =
+      willReplace &&
+      key &&
+      prev &&
+      isArticleWord(prev.word) &&
+      prev.end <= start
+
+    if (pairArticle && prev) {
+      if (start > lastIndex) {
+        frag.appendChild(doc.createTextNode(text.slice(lastIndex, prev.start)))
+      }
+      const articleEn = prev.word
+      const esArt = articleEnToEsSurface(articleEn)
+      const spanA = doc.createElement('span')
+      spanA.setAttribute('lang', 'es')
+      spanA.setAttribute(ATTR_PR_GLOSS_EN, articleEn)
+      spanA.setAttribute('data-pr-role', 'article')
+      spanA.className = 'pr-l2-article'
+      spanA.textContent = `${esArt} `
+      frag.appendChild(spanA)
+      if (prev.end < start) {
+        frag.appendChild(doc.createTextNode(text.slice(prev.end, start)))
+      }
+      const es = lexicon[key]!
+      const display = matchCase(fullWord, es)
+      const isFirst = !firstSeenLemma.has(key)
+      if (isFirst) firstSeenLemma.add(key)
+      const span = doc.createElement('span')
+      span.setAttribute('lang', 'es')
+      span.setAttribute(ATTR_PR_GLOSS_EN, fullWord)
+      span.textContent = display
+      if (isFirst) span.className = 'pr-first-l2'
+      frag.appendChild(span)
+      lastIndex = end
+      continue
+    }
+
     if (start > lastIndex) {
       frag.appendChild(doc.createTextNode(text.slice(lastIndex, start)))
     }
-    const d = nlp(fullWord)
-    const tags = normalizeTags(d.json()[0]?.terms?.[0]?.tags)
-    const key = resolveLexiconKey(fullWord, tags, lexicon)
     if (key && active.has(key) && lexicon[key]) {
       const es = lexicon[key]!
       const display = matchCase(fullWord, es)
@@ -214,13 +278,14 @@ function replaceTokensInTextNode(
       if (isFirst) firstSeenLemma.add(key)
       const span = doc.createElement('span')
       span.setAttribute('lang', 'es')
+      span.setAttribute(ATTR_PR_GLOSS_EN, fullWord)
       span.textContent = display
       if (isFirst) span.className = 'pr-first-l2'
       frag.appendChild(span)
     } else {
       frag.appendChild(doc.createTextNode(fullWord))
     }
-    lastIndex = start + fullWord.length
+    lastIndex = end
   }
   if (lastIndex < text.length) {
     frag.appendChild(doc.createTextNode(text.slice(lastIndex)))

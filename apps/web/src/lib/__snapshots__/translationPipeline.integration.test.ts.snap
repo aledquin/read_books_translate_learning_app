@@ -1,0 +1,115 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`translation pipeline (fixtures, no APIs) > runs all non-API scenarios and produces a stable report snapshot 1`] = `
+{
+  "book": {
+    "blocks": 20,
+    "title": "Reader Feature Sample",
+    "withPlainEs": 20,
+  },
+  "lexiconKeys": 91,
+  "scenarios": [
+    {
+      "analysis": {
+        "blockCount": 20,
+        "blocksWithPrFirstL2": 17,
+        "blocksWithPrSentenceMt": 0,
+        "blocksWithPrSentenceSeg": 0,
+        "hasLangEs": true,
+        "joinedLength": 5140,
+        "langEsSpanCount": 50,
+      },
+      "checks": [
+        "Inline lang=es only; no pr-sentence-mt/seg",
+        "First block still readable (English and/or inline Spanish)",
+      ],
+      "description": "Sentence translation off: worker progressive blend only; lexicon words become inline Spanish (lang=es) with schedule.",
+      "id": "progressive_only",
+    },
+    {
+      "analysis": {
+        "blockCount": 20,
+        "blocksWithPrFirstL2": 17,
+        "blocksWithPrSentenceMt": 0,
+        "blocksWithPrSentenceSeg": 0,
+        "hasLangEs": true,
+        "joinedLength": 5140,
+        "langEsSpanCount": 50,
+      },
+      "checks": [
+        "Same bulk output as progressive (tap loads later in UI)",
+      ],
+      "description": "Sentence on + tap to reveal: same bulk HTML as progressive; Spanish paragraphs load on tap in the reader (not in this pipeline).",
+      "id": "tap_to_reveal",
+    },
+    {
+      "analysis": {
+        "blockCount": 20,
+        "blocksWithPrFirstL2": 0,
+        "blocksWithPrSentenceMt": 20,
+        "blocksWithPrSentenceSeg": 0,
+        "hasLangEs": true,
+        "joinedLength": 2551,
+        "langEsSpanCount": 20,
+      },
+      "checks": [
+        "Every block pr-sentence-mt (bundled)",
+        "Known bundled Spanish phrase present",
+      ],
+      "description": "Replace whole paragraph from the start: every block with plainEs becomes one pr-sentence-mt paragraph of bundled Spanish (no API).",
+      "id": "replace_paragraph_from_beginning_bundled",
+    },
+    {
+      "analysis": {
+        "blockCount": 20,
+        "blocksWithPrFirstL2": 0,
+        "blocksWithPrSentenceMt": 20,
+        "blocksWithPrSentenceSeg": 20,
+        "hasLangEs": true,
+        "joinedLength": 4406,
+        "langEsSpanCount": 20,
+      },
+      "checks": [
+        "By-sentence segments + mt wrapper class on paragraphs",
+        "Bundled first paragraph Spanish present",
+      ],
+      "description": "Replace by sentence from the start: bundled EN/ES with matching sentence counts → pr-sentence-seg spans; no API.",
+      "id": "replace_sentence_from_beginning_bundled",
+    },
+    {
+      "analysis": {
+        "blockCount": 20,
+        "blocksWithPrFirstL2": 16,
+        "blocksWithPrSentenceMt": 5,
+        "blocksWithPrSentenceSeg": 5,
+        "hasLangEs": true,
+        "joinedLength": 4831,
+        "langEsSpanCount": 42,
+      },
+      "checks": [
+        "Mix: some pr-sentence-seg, some progressive first-L2",
+        "Bundled Spanish appears inside sentence segments (not necessarily first line)",
+      ],
+      "description": "Replace by sentence after lexicon sightings (per-lemma threshold): selective blend — only qualifying sentences use bundled Spanish; others stay word-mixed.",
+      "id": "replace_sentence_after_sightings_bundled",
+    },
+    {
+      "analysis": {
+        "blockCount": 20,
+        "blocksWithPrFirstL2": 0,
+        "blocksWithPrSentenceMt": 20,
+        "blocksWithPrSentenceSeg": 0,
+        "hasLangEs": true,
+        "joinedLength": 2551,
+        "langEsSpanCount": 20,
+      },
+      "checks": [
+        "Bundled blocks use full paragraph Spanish",
+        "Early bundled block includes known Spanish",
+      ],
+      "description": "Replace paragraph after cumulative lexicon hits: blocks with plainEs still get bundled Spanish before the threshold; others wait until the global hit index.",
+      "id": "replace_paragraph_after_sightings_bundled",
+    },
+  ],
+}
+`;

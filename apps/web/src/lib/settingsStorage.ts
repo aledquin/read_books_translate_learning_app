@@ -36,6 +36,14 @@ export function loadUiSettings(): ReaderSettings {
         : merged.sentenceTranslateStyle === 'replace_sentence'
           ? 'replace_sentence'
           : 'replace_paragraph'
+    merged.readingCheckpointEnabled =
+      typeof p.readingCheckpointEnabled === 'boolean'
+        ? p.readingCheckpointEnabled
+        : defaultSettings.readingCheckpointEnabled
+    merged.showWordGrammarInTooltip =
+      typeof p.showWordGrammarInTooltip === 'boolean'
+        ? p.showWordGrammarInTooltip
+        : defaultSettings.showWordGrammarInTooltip
     return merged
   } catch {
     return { ...defaultSettings }

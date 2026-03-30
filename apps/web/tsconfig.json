@@ -19,5 +19,9 @@
     "noUncheckedSideEffectImports": true
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "vitest.config.ts"]
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/lib/translationPipelineHarness.ts",
+    "vitest.config.ts"
+  ]
 }

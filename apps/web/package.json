@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "preview:gh-pages": "cross-env BASE_PATH=/reader/ vite preview",
     "test": "vitest run",
+    "test:translation-pipeline": "vitest run src/lib/translationPipeline.integration.test.ts",
     "test:watch": "vitest",
     "epub:feature-sample": "node scripts/build-reader-feature-epub.mjs"
   },
