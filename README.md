@@ -64,6 +64,17 @@ Open the printed URL and ensure assets load under `/reader/`.
 5. Confirm `publish_branch` in the workflow matches the branch you use on `aledquin.github.io` (`main` is the default).
 6. Push to `main` or `master` (with changes under `apps/web/`) or run the workflow manually (**Actions → Deploy reader to GitHub Pages → Run workflow**).
 
+**Quick links (complete setup in the browser)**
+
+| Step | Link |
+|------|------|
+| Add `GH_PAGES_TOKEN` | [Actions secrets](https://github.com/aledquin/read_books_translate_learning_app/settings/secrets/actions) |
+| Create fine-grained PAT | [New token](https://github.com/settings/personal-access-tokens/new) — repository **aledquin.github.io** only; **Contents** = Read and write |
+| Pages on site repo | [Pages settings](https://github.com/aledquin/aledquin.github.io/settings/pages) — branch **main**, folder **/ (root)** |
+| Run deploy | [Workflow](https://github.com/aledquin/read_books_translate_learning_app/actions/workflows/deploy-gh-pages-reader.yml) → **Run workflow** |
+
+Live URLs: [aledquin.github.io](https://aledquin.github.io/) (landing) · […/reader/](https://aledquin.github.io/reader/) (app).
+
 The workflow builds **`_site`** with the landing page at the repo root and the app under **`reader/`**, then pushes to `aledquin.github.io`. Production **`dist/`** also includes **`404.html`** and **`.nojekyll`** under `reader/` for the SPA.
 
 **Dependency updates:** [`.github/dependabot.yml`](.github/dependabot.yml) proposes monthly bumps for npm (`apps/web`) and GitHub Actions.
