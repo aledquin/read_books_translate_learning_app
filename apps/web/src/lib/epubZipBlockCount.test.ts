@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { countEpubReadingBlocks } from './epubZipBlockCount'
@@ -6,6 +6,11 @@ import { countEpubReadingBlocks } from './epubZipBlockCount'
 const whiteNightsEn = resolve(
   process.cwd(),
   '../../fixtures/epub/white-nights-fyodor-dostoevsky.epub',
+)
+
+const whiteNightsEs = resolve(
+  process.cwd(),
+  '../../fixtures/epub/white-nights-fyodor-dostoevsky.es.epub',
 )
 
 const readerFeatureEn = resolve(
@@ -40,4 +45,15 @@ describe('countEpubReadingBlocks', () => {
     expect(total).toBeGreaterThan(80)
     expect(total).toBeLessThan(8000)
   })
+
+  it.skipIf(!existsSync(whiteNightsEs))(
+    'White Nights Spanish companion matches English block count',
+    async () => {
+      const enBuf = readFileSync(whiteNightsEn)
+      const esBuf = readFileSync(whiteNightsEs)
+      const a = await countEpubReadingBlocks(enBuf)
+      const b = await countEpubReadingBlocks(esBuf)
+      expect(a.total).toBe(b.total)
+    },
+  )
 })

@@ -78,7 +78,7 @@ When a **Spanish** EPUB exists as `white-nights-fyodor-dostoevsky.es.epub`, add 
 | Block count QA | `apps/web/src/lib/epubZipBlockCount.ts` |
 | Sentence split | `apps/web/src/lib/sentenceSplit.ts` |
 | Build tiny sample EPUBs | `apps/web/scripts/build-reader-feature-epub.mjs` |
-| Pipeline doc | `apps/web/docs/translation-pipeline.md` |
+| Pipeline doc | `apps/web/docs/translation-pipeline.md`, `apps/web/public/docs/translation-pipeline.html` |
 
 ## More detail
 

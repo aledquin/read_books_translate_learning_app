@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:translation-pipeline": "vitest run src/lib/translationPipeline.integration.test.ts",
     "test:watch": "vitest",
-    "epub:feature-sample": "node scripts/build-reader-feature-epub.mjs"
+    "epub:feature-sample": "node scripts/build-reader-feature-epub.mjs",
+    "epub:translate:white-nights": "node scripts/translate-epub-en-es.mjs --in ../../fixtures/epub/white-nights-fyodor-dostoevsky.epub --out ../../fixtures/epub/white-nights-fyodor-dostoevsky.es.epub"
   },
   "dependencies": {
     "compromise": "^14.14.4",
@@ -27,6 +28,7 @@
     "@types/dompurify": "^3.2.0",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
+    "@vitalets/google-translate-api": "^9.2.1",
     "@vitejs/plugin-react": "^4.3.4",
     "cross-env": "^7.0.3",
     "jsdom": "^26.0.0",
