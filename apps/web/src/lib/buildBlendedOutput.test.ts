@@ -10,6 +10,9 @@ const enEs: ReaderSettings = { ...defaultSettings, pairId: 'en-es' }
 describe('blendedBlockHasSentenceMt', () => {
   it('detects sentence-layer markup', () => {
     expect(blendedBlockHasSentenceMt('<p class="pr-sentence-mt" lang="es">Hola</p>')).toBe(true)
+    expect(blendedBlockHasSentenceMt('<p class="pr-sentence-mt--by-sentence"><span class="pr-sentence-seg">Hola</span></p>')).toBe(
+      true,
+    )
     expect(blendedBlockHasSentenceMt('<p><span lang="es">x</span></p>')).toBe(false)
   })
 })
@@ -56,6 +59,24 @@ describe('sentenceTranslationIssueMessage', () => {
     )
     expect(msg).toContain('never starts')
     expect(msg).toContain('99')
+  })
+
+  it('explains when no sentences qualify (replace_sentence + after sightings)', () => {
+    const ui = {
+      ...enEs,
+      sentenceTranslateEnabled: true,
+      sentenceTranslateStyle: 'replace_sentence' as const,
+      sentenceTranslateWhen: 'after_lexicon_sightings' as const,
+      sentenceTranslateAfterSightings: 10,
+    }
+    const msg = sentenceTranslationIssueMessage(
+      ui,
+      ['Time once.'],
+      { time: 'tiempo' },
+      ['<p>x</p>'],
+    )
+    expect(msg).toContain('No sentences qualify')
+    expect(msg).toContain('10')
   })
 
   it('explains MyMemory path when start is in range but no MT blocks', () => {

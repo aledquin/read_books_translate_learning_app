@@ -643,7 +643,7 @@ export default function App() {
                     sentenceReplaceInPlace &&
                     ui.sentenceTranslateWhen === 'after_lexicon_sightings'
                       ? ui.sentenceTranslateStyle === 'replace_sentence'
-                        ? ` Replace-by-sentence: after ${ui.sentenceTranslateAfterSightings} lexicon word sightings, later paragraphs use per-sentence Spanish.`
+                        ? ` Replace-by-sentence: each lexicon word must appear ${ui.sentenceTranslateAfterSightings} times before a sentence containing it switches to full Spanish; other sentences stay word-by-word mixed.`
                         : ` Replace paragraph: after ${ui.sentenceTranslateAfterSightings} lexicon word sightings, later blocks switch to full Spanish.`
                       : null}
                   </p>

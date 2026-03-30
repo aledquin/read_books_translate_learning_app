@@ -92,7 +92,7 @@ export function matchCase(source: string, translated: string): string {
   return translated
 }
 
-function collectLemmaScores(
+export function collectLemmaScores(
   plainBlocks: string[],
   lexicon: Record<string, string>,
   freq: Map<string, number>,

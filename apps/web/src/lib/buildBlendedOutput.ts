@@ -1,6 +1,12 @@
 import type { ContentBlock, ReaderSettings } from '../types/book'
 import { startParagraphIndexAfterSightings } from './progressiveBlendCore'
 import { runProgressiveBlend } from './processBook'
+import {
+  buildSelectiveSentenceBlend,
+  computeSentenceReplaceMask,
+  maskHasAnyTrue,
+  useSelectiveSentenceSightingsBlend,
+} from './selectiveSentenceBlend'
 import { applySentenceTranslationLayer } from './sentenceLayer'
 
 export type BlendPhase = 'blend' | 'sentence'
@@ -10,9 +16,9 @@ export type BuildBlendedPipelineOptions = {
   onMyMemoryQuotaLimited?: (message: string) => void
 }
 
-/** True if this block was replaced by full-sentence MyMemory output. */
+/** True if this block includes full-sentence Spanish (whole paragraph or per-sentence segments). */
 export function blendedBlockHasSentenceMt(html: string): boolean {
-  return html.includes('pr-sentence-mt')
+  return html.includes('pr-sentence-mt') || html.includes('pr-sentence-seg')
 }
 
 /**
@@ -29,6 +35,18 @@ export function sentenceTranslationIssueMessage(
   if (ui.sentenceTranslateStyle === 'tap_to_reveal') return null
   if (blended.some((h) => blendedBlockHasSentenceMt(h))) return null
   const threshold = Math.max(1, Math.min(5000, ui.sentenceTranslateAfterSightings))
+
+  if (
+    ui.sentenceTranslateStyle === 'replace_sentence' &&
+    ui.sentenceTranslateWhen === 'after_lexicon_sightings'
+  ) {
+    const mask = computeSentenceReplaceMask(plainBlocks, lexicon, threshold)
+    if (!maskHasAnyTrue(mask)) {
+      return `No sentences qualify for full Spanish: each lexicon word must appear at least ${threshold} times in the book (in order) before a sentence that contains it is replaced. Sentences with no lexicon words stay progressively blended. Lower the lexicon sightings count in Settings or use more repeated vocabulary.`
+    }
+    return 'Full-sentence translation is on, but no Spanish segments were added. Common causes: MyMemory quota (HTTP 429), an ad blocker, or offline. Re-import with a paired Spanish EPUB (same sentence boundaries as English) to avoid APIs, or add Google Cloud in .env. Open DevTools → Console for errors.'
+  }
+
   const start =
     ui.sentenceTranslateWhen === 'from_beginning'
       ? 0
@@ -40,8 +58,10 @@ export function sentenceTranslationIssueMessage(
 }
 
 /**
- * Word-level progressive blend, then optional EN→ES sentence translation (MyMemory) for
- * paragraphs after cumulative lexicon word sightings reach the configured threshold.
+ * Word-level progressive blend, then optional EN→ES sentence translation. Replace paragraph (and
+ * replace sentence from the beginning) use the cumulative lexicon hit index. Replace sentence +
+ * after lexicon sightings uses a dedicated pass: per lexicon word, after N occurrences a sentence
+ * containing that word may switch to full Spanish; other sentences stay mixed.
  * `tap_to_reveal` skips bulk replacement; the reader loads Spanish on demand.
  * Only when `sentenceTranslateEnabled` and `en-es`.
  */
@@ -55,6 +75,32 @@ export async function buildBlendedHtmlPipeline(
   const htmlBlocks = blocks.map((b) => b.html)
   const plainBlocks = blocks.map((b) => b.plain)
 
+  if (!ui.sentenceTranslateEnabled || ui.pairId !== 'en-es') {
+    return runProgressiveBlend(
+      htmlBlocks,
+      plainBlocks,
+      lexicon,
+      ui.paceGamma,
+      ui.learnWordCap,
+      (c, t) => onProgress('blend', c, t),
+    )
+  }
+
+  if (ui.sentenceTranslateStyle === 'tap_to_reveal') {
+    return runProgressiveBlend(
+      htmlBlocks,
+      plainBlocks,
+      lexicon,
+      ui.paceGamma,
+      ui.learnWordCap,
+      (c, t) => onProgress('blend', c, t),
+    )
+  }
+
+  if (useSelectiveSentenceSightingsBlend(ui)) {
+    return buildSelectiveSentenceBlend(blocks, lexicon, ui, onProgress, options)
+  }
+
   const blended = await runProgressiveBlend(
     htmlBlocks,
     plainBlocks,
@@ -63,14 +109,6 @@ export async function buildBlendedHtmlPipeline(
     ui.learnWordCap,
     (c, t) => onProgress('blend', c, t),
   )
-
-  if (!ui.sentenceTranslateEnabled || ui.pairId !== 'en-es') {
-    return blended
-  }
-
-  if (ui.sentenceTranslateStyle === 'tap_to_reveal') {
-    return blended
-  }
 
   const threshold = Math.max(1, Math.min(5000, ui.sentenceTranslateAfterSightings))
   const start =

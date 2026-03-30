@@ -163,9 +163,11 @@ export function SettingsSheet({ draft, onChange, onApply, onCancel }: Props) {
                     disabled={!draft.sentenceTranslateEnabled}
                     onChange={() => patch({ sentenceTranslateStyle: 'replace_sentence' })}
                   />{' '}
-                  Replace sentence by sentence (splits on . ? ! … ; more API calls. With a paired
-                  Spanish EPUB, EN/ES must split into the same number of sentences or we fall back
-                  to one paragraph of Spanish)
+                  Replace sentence by sentence (splits on . ? ! …. With “after lexicon sightings”,
+                  only sentences that contain a lexicon word switch to full Spanish once that word
+                  has appeared that many times; other sentences stay word-by-word mixed. More API
+                  calls. With a paired Spanish EPUB, EN/ES must split into the same number of
+                  sentences per paragraph or we translate per sentence via API for that block.)
                 </label>
                 <label>
                   <input
@@ -236,10 +238,12 @@ export function SettingsSheet({ draft, onChange, onApply, onCancel }: Props) {
                 }}
               />
               <div className="hint">
-                Counts each word that appears in your lexicon (reading order; repeats count). Used
-                only when using replace mode and “after lexicon sightings”. Blocks that already have
-                bundled Spanish from a paired EPUB are still replaced from the start; the threshold
-                only delays API translation for blocks without companion text.
+                Replace paragraph: total lexicon matches in reading order; after that many hits,
+                whole blocks switch to full Spanish. Replace sentence + after sightings: the number is
+                per lexicon word—a sentence switches only if it contains a word that has appeared
+                that many times so far; sentences with no lexicon words stay word-by-word mixed.
+                Paired Spanish EPUB: bundled text is used per sentence when EN/ES sentence counts
+                match that paragraph; otherwise the API translates each qualifying sentence.
               </div>
             </div>
           </>
