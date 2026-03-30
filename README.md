@@ -51,7 +51,7 @@ npm run preview:gh-pages
 
 Open the printed URL and ensure assets load under `/reader/`.
 
-**CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every PR and push to `main`/`master` when `apps/web` or `github-pages/` changes: `npm ci` → `npm run verify` (same as `build:gh-pages` + full test suite).
+**CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every PR and push to `main`/`master` when `apps/web` or `github-pages/` changes: `npm ci` → `npm run verify` (same as `build:gh-pages` + full test suite). Workflows use **`actions/checkout@v6`**, **`actions/setup-node@v6`**, and **`FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true`** so Actions run on Node.js 24 per [GitHub’s deprecation timeline](https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/).
 
 **Automated deploy** ([`.github/workflows/deploy-gh-pages-reader.yml`](.github/workflows/deploy-gh-pages-reader.yml))
 

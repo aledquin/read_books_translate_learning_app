@@ -1,6 +1,9 @@
 # Validates apps/web on every PR and push (no deploy).
 name: CI
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   pull_request:
     paths:
@@ -25,9 +28,9 @@ jobs:
       run:
         working-directory: apps/web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: apps/web/.nvmrc
           cache: npm

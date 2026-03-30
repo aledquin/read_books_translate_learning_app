@@ -12,6 +12,10 @@
 
 name: Deploy reader to GitHub Pages
 
+# Opt into Node.js 24 for JS actions before GitHub’s default switch (see GitHub changelog).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: [main, master]
@@ -32,9 +36,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: apps/web/.nvmrc
           cache: npm
@@ -53,8 +57,9 @@ jobs:
           cp github-pages/landing/index.html _site/index.html
           : > _site/.nojekyll
 
+      # v4 still declares `node20` in action.yml; env above mitigates until a newer release.
       - name: Push to aledquin.github.io
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@v4.0.0
         with:
           personal_token: ${{ secrets.GH_PAGES_TOKEN }}
           external_repository: aledquin/aledquin.github.io
