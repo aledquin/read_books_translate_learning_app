@@ -1,6 +1,6 @@
 # Arduino Auto Mouse
 
-A starter Git project for building an Arduino-powered automated mouse clicker that reacts to hand distance measured by an ultrasonic sensor.
+A starter Git project for building an Arduino-powered automated mouse controller that reacts to hand distance measured by a top-mounted ultrasonic sensor.
 
 This project targets Arduino boards with native USB HID support, such as:
 
@@ -8,15 +8,18 @@ This project targets Arduino boards with native USB HID support, such as:
 - Arduino Micro
 - Pro Micro compatible boards
 
-It uses the built-in `Mouse` library so the Arduino can appear to the computer as a USB mouse and issue left-click events at a configurable interval when an object is detected inside a chosen distance range.
+It uses the built-in `Mouse` library so the Arduino can appear to the computer as a USB mouse and map two vertical distance gates to different actions.
 
 ## Features
 
-- Trigger automatic clicking with an HC-SR04 style ultrasonic distance sensor
-- Adjust click interval with a potentiometer
+- Use an HC-SR04 style ultrasonic sensor mounted above the hand area
+- Split the sensing field into two configurable gates
+- Near gate sends repeated left clicks
+- Far gate sends repeated right clicks
+- Adjust repeat interval with a potentiometer
 - Built-in safety delay before mouse control starts
 - Status output over Serial for debugging
-- LED indicator while clicking is enabled by sensor detection
+- LED indicator while either gate is active
 
 ## Repository layout
 
@@ -35,6 +38,7 @@ projects/arduino-auto-mouse/
 - 1 10k potentiometer
 - Jumper wires
 - Breadboard (optional)
+- A top bracket or mount so the sensor can point downward
 
 ## Default pin mapping
 
@@ -45,16 +49,19 @@ projects/arduino-auto-mouse/
 
 ## How it works
 
-1. On startup, the sketch waits a few seconds before enabling mouse output.
-2. The ultrasonic sensor continuously measures distance in front of the board.
-3. If a hand or object is detected inside the configured trigger window, clicking becomes active.
-4. Turn the potentiometer to change the delay between clicks.
-5. While an object remains in range, the board sends repeated left mouse clicks to the connected computer.
+1. Mount the ultrasonic sensor above the interaction area so it points downward.
+2. On startup, the sketch waits a few seconds before enabling mouse output.
+3. The sensor continuously measures the distance to the hand or surface below it.
+4. If the measured distance enters the far gate, the board sends repeated right clicks.
+5. If the measured distance enters the near gate, the board sends repeated left clicks.
+6. Turn the potentiometer to change the delay between repeated actions.
 
-## Default detection range
+## Default gate ranges
 
-- Minimum trigger distance: `4 cm`
-- Maximum trigger distance: `20 cm`
+- Near gate minimum distance: `6 cm`
+- Near gate maximum distance: `12 cm`
+- Far gate minimum distance: `13 cm`
+- Far gate maximum distance: `22 cm`
 
 You can adjust these values directly in `arduino-auto-mouse.ino`.
 
@@ -70,13 +77,13 @@ You can adjust these values directly in `arduino-auto-mouse.ino`.
 
 - This sketch controls the host computer's mouse. Keep a hardware disconnect option available while testing.
 - The startup delay is intentional so you have time to unplug the board if needed.
-- Distance sensors can be noisy, so test with a wide trigger range before tightening it.
+- Distance sensors can be noisy, so leave a small gap between the two gates to avoid accidental switching.
 - Only use automation where it is allowed and appropriate.
 
 ## Next ideas
 
-- Add a second potentiometer for live distance-threshold tuning
-- Add right-click or scroll modes
+- Add a second potentiometer for live gate-threshold tuning
+- Add scroll mode as a third gate or gesture
 - Store settings in EEPROM
 - Add an OLED display for distance, click rate, and state
 - Add a serial command interface for remote configuration

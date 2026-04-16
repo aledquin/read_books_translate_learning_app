@@ -46,13 +46,29 @@ class ArduinoAutoMouseDocsConsistencyTest(unittest.TestCase):
         self.assertIn(f"Speed potentiometer: `{potentiometer_pin}`", self.readme)
 
     def test_project_docs_match_distance_range_and_click_interval(self) -> None:
-        min_distance_cm = extract_constant_value(self.sketch, "ACTIVE_MIN_DISTANCE_CM")
-        max_distance_cm = extract_constant_value(self.sketch, "ACTIVE_MAX_DISTANCE_CM")
+        near_gate_min_cm = extract_constant_value(self.sketch, "NEAR_GATE_MIN_DISTANCE_CM")
+        near_gate_max_cm = extract_constant_value(self.sketch, "NEAR_GATE_MAX_DISTANCE_CM")
+        far_gate_min_cm = extract_constant_value(self.sketch, "FAR_GATE_MIN_DISTANCE_CM")
+        far_gate_max_cm = extract_constant_value(self.sketch, "FAR_GATE_MAX_DISTANCE_CM")
         min_click_ms = extract_constant_value(self.sketch, "MIN_CLICK_INTERVAL_MS")
         max_click_ms = extract_constant_value(self.sketch, "MAX_CLICK_INTERVAL_MS")
 
-        self.assertIn(f"Minimum trigger distance: `{min_distance_cm.rstrip('0').rstrip('.')} cm`", self.readme)
-        self.assertIn(f"Maximum trigger distance: `{max_distance_cm.rstrip('0').rstrip('.')} cm`", self.readme)
+        self.assertIn(
+            f"Near gate minimum distance: `{near_gate_min_cm.rstrip('0').rstrip('.')} cm`",
+            self.readme,
+        )
+        self.assertIn(
+            f"Near gate maximum distance: `{near_gate_max_cm.rstrip('0').rstrip('.')} cm`",
+            self.readme,
+        )
+        self.assertIn(
+            f"Far gate minimum distance: `{far_gate_min_cm.rstrip('0').rstrip('.')} cm`",
+            self.readme,
+        )
+        self.assertIn(
+            f"Far gate maximum distance: `{far_gate_max_cm.rstrip('0').rstrip('.')} cm`",
+            self.readme,
+        )
         self.assertIn(
             f"Turning the potentiometer changes the click interval from about `{min_click_ms} ms` to `{max_click_ms} ms`.",
             self.wiring,
@@ -61,13 +77,23 @@ class ArduinoAutoMouseDocsConsistencyTest(unittest.TestCase):
     def test_wiring_doc_matches_sketch(self) -> None:
         trigger_pin = extract_constant_value(self.sketch, "ULTRASONIC_TRIGGER_PIN")
         echo_pin = extract_constant_value(self.sketch, "ULTRASONIC_ECHO_PIN")
-        min_distance_cm = extract_constant_value(self.sketch, "ACTIVE_MIN_DISTANCE_CM")
-        max_distance_cm = extract_constant_value(self.sketch, "ACTIVE_MAX_DISTANCE_CM")
+        near_gate_min_cm = extract_constant_value(self.sketch, "NEAR_GATE_MIN_DISTANCE_CM")
+        near_gate_max_cm = extract_constant_value(self.sketch, "NEAR_GATE_MAX_DISTANCE_CM")
+        far_gate_min_cm = extract_constant_value(self.sketch, "FAR_GATE_MIN_DISTANCE_CM")
+        far_gate_max_cm = extract_constant_value(self.sketch, "FAR_GATE_MAX_DISTANCE_CM")
 
         self.assertIn(f"- Sensor `TRIG` -> `D{trigger_pin}`", self.wiring)
         self.assertIn(f"- Sensor `ECHO` -> `D{echo_pin}`", self.wiring)
         self.assertIn(
-            f"- Default active range: about `{min_distance_cm.rstrip('0').rstrip('.')} cm` to `{max_distance_cm.rstrip('0').rstrip('.')} cm`",
+            "Mount the ultrasonic sensor above the hand area so it points straight down.",
+            self.wiring,
+        )
+        self.assertIn(
+            f"- Default near gate: about `{near_gate_min_cm.rstrip('0').rstrip('.')} cm` to `{near_gate_max_cm.rstrip('0').rstrip('.')} cm`",
+            self.wiring,
+        )
+        self.assertIn(
+            f"- Default far gate: about `{far_gate_min_cm.rstrip('0').rstrip('.')} cm` to `{far_gate_max_cm.rstrip('0').rstrip('.')} cm`",
             self.wiring,
         )
 

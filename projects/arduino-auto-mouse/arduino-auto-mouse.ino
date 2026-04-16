@@ -15,10 +15,18 @@ const unsigned long MIN_CLICK_INTERVAL_MS = 100;
 const unsigned long MAX_CLICK_INTERVAL_MS = 2000;
 const unsigned long SENSOR_TIMEOUT_US = 25000;
 
-const float ACTIVE_MIN_DISTANCE_CM = 4.0;
-const float ACTIVE_MAX_DISTANCE_CM = 20.0;
+const float NEAR_GATE_MIN_DISTANCE_CM = 6.0;
+const float NEAR_GATE_MAX_DISTANCE_CM = 12.0;
+const float FAR_GATE_MIN_DISTANCE_CM = 13.0;
+const float FAR_GATE_MAX_DISTANCE_CM = 22.0;
 
-bool targetDetected = false;
+enum class GateState {
+  kNone,
+  kNear,
+  kFar,
+};
+
+GateState activeGate = GateState::kNone;
 unsigned long lastClickTimeMs = 0;
 
 unsigned long mapPotentiometerToInterval() {
@@ -43,27 +51,59 @@ float readDistanceCm() {
 }
 
 bool isTargetInRange(float distanceCm) {
-  return distanceCm >= ACTIVE_MIN_DISTANCE_CM &&
-         distanceCm <= ACTIVE_MAX_DISTANCE_CM;
+  return distanceCm >= NEAR_GATE_MIN_DISTANCE_CM &&
+         distanceCm <= FAR_GATE_MAX_DISTANCE_CM;
+}
+
+GateState classifyGate(float distanceCm) {
+  if (distanceCm >= NEAR_GATE_MIN_DISTANCE_CM &&
+      distanceCm <= NEAR_GATE_MAX_DISTANCE_CM) {
+    return GateState::kNear;
+  }
+
+  if (distanceCm >= FAR_GATE_MIN_DISTANCE_CM &&
+      distanceCm <= FAR_GATE_MAX_DISTANCE_CM) {
+    return GateState::kFar;
+  }
+
+  return GateState::kNone;
+}
+
+const char* gateLabel(GateState gate) {
+  switch (gate) {
+    case GateState::kNear:
+      return "near gate";
+    case GateState::kFar:
+      return "far gate";
+    case GateState::kNone:
+    default:
+      return "no gate";
+  }
 }
 
 void updateDetectionState(float distanceCm) {
-  const bool detectedNow = isTargetInRange(distanceCm);
-  if (detectedNow == targetDetected) {
+  const GateState detectedGate = classifyGate(distanceCm);
+  if (detectedGate == activeGate) {
     return;
   }
 
-  targetDetected = detectedNow;
-  digitalWrite(STATUS_LED_PIN, targetDetected ? HIGH : LOW);
+  activeGate = detectedGate;
+  digitalWrite(STATUS_LED_PIN, activeGate != GateState::kNone ? HIGH : LOW);
 
-  if (targetDetected) {
-    Serial.print("Target detected at ");
+  if (activeGate != GateState::kNone) {
+    Serial.print("Target entered ");
+    Serial.print(gateLabel(activeGate));
+    Serial.print(" at ");
     Serial.print(distanceCm);
     Serial.println(" cm");
     return;
   }
 
-  Serial.println("Target left detection range");
+  if (isTargetInRange(distanceCm)) {
+    return;
+  }
+
+  Serial.println("Target left both gates");
 }
 }  // namespace
 
@@ -86,14 +126,14 @@ void setup() {
   delay(STARTUP_SAFETY_DELAY_MS);
 
   Mouse.begin();
-  Serial.println("Mouse control active. Present a hand in front of the ultrasonic sensor to click.");
+  Serial.println("Mouse control active. Mount the ultrasonic sensor above the target area and move a hand through either gate.");
 }
 
 void loop() {
   const float distanceCm = readDistanceCm();
   if (distanceCm < 0.0) {
-    if (targetDetected) {
-      targetDetected = false;
+    if (activeGate != GateState::kNone) {
+      activeGate = GateState::kNone;
       digitalWrite(STATUS_LED_PIN, LOW);
       Serial.println("Ultrasonic reading timed out; clicking paused");
     }
@@ -103,7 +143,7 @@ void loop() {
 
   updateDetectionState(distanceCm);
 
-  if (!targetDetected) {
+  if (activeGate == GateState::kNone) {
     delay(30);
     return;
   }
@@ -115,10 +155,15 @@ void loop() {
     return;
   }
 
-  Mouse.click(MOUSE_LEFT);
+  const uint8_t button =
+      activeGate == GateState::kNear ? MOUSE_LEFT : MOUSE_RIGHT;
+  Mouse.click(button);
   lastClickTimeMs = nowMs;
 
-  Serial.print("Click sent at ");
+  Serial.print(activeGate == GateState::kNear ? "Left" : "Right");
+  Serial.print(" click sent from ");
+  Serial.print(gateLabel(activeGate));
+  Serial.print(" at ");
   Serial.print(distanceCm);
   Serial.print(" cm. Interval (ms): ");
   Serial.println(clickIntervalMs);

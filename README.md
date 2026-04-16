@@ -98,7 +98,7 @@ npm run verify
 
 ## Additional projects
 
-- [`projects/arduino-auto-mouse`](projects/arduino-auto-mouse) - starter Arduino project for a USB HID auto-click mouse using a button toggle and potentiometer-controlled click speed.
+- [`projects/arduino-auto-mouse`](projects/arduino-auto-mouse) - starter Arduino project for a top-mounted ultrasonic USB HID mouse controller with two configurable distance gates and potentiometer-controlled repeat speed.
 
 ## Repository tests
 
