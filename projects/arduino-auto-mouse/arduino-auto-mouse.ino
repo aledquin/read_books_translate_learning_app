@@ -5,19 +5,20 @@
 #endif
 
 namespace {
-const int TOGGLE_BUTTON_PIN = 2;
+const int ULTRASONIC_TRIGGER_PIN = 3;
+const int ULTRASONIC_ECHO_PIN = 4;
 const int POTENTIOMETER_PIN = A0;
 const int STATUS_LED_PIN = LED_BUILTIN;
 
 const unsigned long STARTUP_SAFETY_DELAY_MS = 5000;
-const unsigned long DEBOUNCE_DELAY_MS = 40;
 const unsigned long MIN_CLICK_INTERVAL_MS = 100;
 const unsigned long MAX_CLICK_INTERVAL_MS = 2000;
+const unsigned long SENSOR_TIMEOUT_US = 25000;
 
-bool autoClickEnabled = false;
-bool buttonState = HIGH;
-bool lastButtonReading = HIGH;
-unsigned long lastDebounceTimeMs = 0;
+const float ACTIVE_MIN_DISTANCE_CM = 4.0;
+const float ACTIVE_MAX_DISTANCE_CM = 20.0;
+
+bool targetDetected = false;
 unsigned long lastClickTimeMs = 0;
 
 unsigned long mapPotentiometerToInterval() {
@@ -25,32 +26,52 @@ unsigned long mapPotentiometerToInterval() {
   return map(raw, 0, 1023, MIN_CLICK_INTERVAL_MS, MAX_CLICK_INTERVAL_MS);
 }
 
-void updateToggleButton() {
-  const bool reading = digitalRead(TOGGLE_BUTTON_PIN);
+float readDistanceCm() {
+  digitalWrite(ULTRASONIC_TRIGGER_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(ULTRASONIC_TRIGGER_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(ULTRASONIC_TRIGGER_PIN, LOW);
 
-  if (reading != lastButtonReading) {
-    lastDebounceTimeMs = millis();
+  const unsigned long durationUs =
+      pulseIn(ULTRASONIC_ECHO_PIN, HIGH, SENSOR_TIMEOUT_US);
+  if (durationUs == 0) {
+    return -1.0;
   }
 
-  if ((millis() - lastDebounceTimeMs) > DEBOUNCE_DELAY_MS && reading != buttonState) {
-    buttonState = reading;
+  return durationUs / 58.0;
+}
 
-    if (buttonState == LOW) {
-      autoClickEnabled = !autoClickEnabled;
-      digitalWrite(STATUS_LED_PIN, autoClickEnabled ? HIGH : LOW);
+bool isTargetInRange(float distanceCm) {
+  return distanceCm >= ACTIVE_MIN_DISTANCE_CM &&
+         distanceCm <= ACTIVE_MAX_DISTANCE_CM;
+}
 
-      Serial.print("Auto clicker ");
-      Serial.println(autoClickEnabled ? "enabled" : "disabled");
-    }
+void updateDetectionState(float distanceCm) {
+  const bool detectedNow = isTargetInRange(distanceCm);
+  if (detectedNow == targetDetected) {
+    return;
   }
 
-  lastButtonReading = reading;
+  targetDetected = detectedNow;
+  digitalWrite(STATUS_LED_PIN, targetDetected ? HIGH : LOW);
+
+  if (targetDetected) {
+    Serial.print("Target detected at ");
+    Serial.print(distanceCm);
+    Serial.println(" cm");
+    return;
+  }
+
+  Serial.println("Target left detection range");
 }
 }  // namespace
 
 void setup() {
-  pinMode(TOGGLE_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(ULTRASONIC_TRIGGER_PIN, OUTPUT);
+  pinMode(ULTRASONIC_ECHO_PIN, INPUT);
   pinMode(STATUS_LED_PIN, OUTPUT);
+  digitalWrite(ULTRASONIC_TRIGGER_PIN, LOW);
   digitalWrite(STATUS_LED_PIN, LOW);
 
   Serial.begin(115200);
@@ -65,13 +86,25 @@ void setup() {
   delay(STARTUP_SAFETY_DELAY_MS);
 
   Mouse.begin();
-  Serial.println("Mouse control active. Press button on D2 to toggle clicking.");
+  Serial.println("Mouse control active. Present a hand in front of the ultrasonic sensor to click.");
 }
 
 void loop() {
-  updateToggleButton();
+  const float distanceCm = readDistanceCm();
+  if (distanceCm < 0.0) {
+    if (targetDetected) {
+      targetDetected = false;
+      digitalWrite(STATUS_LED_PIN, LOW);
+      Serial.println("Ultrasonic reading timed out; clicking paused");
+    }
+    delay(60);
+    return;
+  }
 
-  if (!autoClickEnabled) {
+  updateDetectionState(distanceCm);
+
+  if (!targetDetected) {
+    delay(30);
     return;
   }
 
@@ -85,6 +118,8 @@ void loop() {
   Mouse.click(MOUSE_LEFT);
   lastClickTimeMs = nowMs;
 
-  Serial.print("Click sent. Interval (ms): ");
+  Serial.print("Click sent at ");
+  Serial.print(distanceCm);
+  Serial.print(" cm. Interval (ms): ");
   Serial.println(clickIntervalMs);
 }
