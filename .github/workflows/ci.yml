@@ -9,12 +9,16 @@ on:
     paths:
       - 'apps/web/**'
       - 'github-pages/**'
+      - 'projects/arduino-auto-mouse/**'
+      - 'tests/**'
       - '.github/workflows/ci.yml'
   push:
     branches: [main, master]
     paths:
       - 'apps/web/**'
       - 'github-pages/**'
+      - 'projects/arduino-auto-mouse/**'
+      - 'tests/**'
       - '.github/workflows/ci.yml'
 
 concurrency:
@@ -41,3 +45,15 @@ jobs:
 
       - name: Verify (TypeScript + gh-pages build + tests)
         run: npm run verify
+
+  arduino-project:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Verify Arduino project docs and sketch config
+        run: python -m unittest discover -s tests -p 'test_*.py' -v

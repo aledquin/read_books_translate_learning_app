@@ -99,3 +99,8 @@ npm run verify
 ## Additional projects
 
 - [`projects/arduino-auto-mouse`](projects/arduino-auto-mouse) - starter Arduino project for a USB HID auto-click mouse using a button toggle and potentiometer-controlled click speed.
+
+## Repository tests
+
+- Web app: from `apps/web`, run `npm test`
+- Arduino project consistency checks: from the repo root, run `python3 -m unittest discover -s tests -p 'test_*.py'`
