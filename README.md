@@ -95,3 +95,7 @@ npm run verify
 - Substitution is **lemma-level** (not full conjugation parity with Spanish).
 - **Tap-to-define:** select a single English word to see a gloss if it exists in the bundled lexicon.
 - EPUB HTML is sanitized; very unusual markup may lose formatting.
+
+## Additional projects
+
+- [`projects/arduino-auto-mouse`](projects/arduino-auto-mouse) - starter Arduino project for a USB HID auto-click mouse using a button toggle and potentiometer-controlled click speed.
