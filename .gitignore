@@ -4,3 +4,5 @@ dist/
 .DS_Store
 apps/web/dev-dist/
 fixtures/epub/*.translation-cache.json
+__pycache__/
+*.pyc

@@ -95,3 +95,12 @@ npm run verify
 - Substitution is **lemma-level** (not full conjugation parity with Spanish).
 - **Tap-to-define:** select a single English word to see a gloss if it exists in the bundled lexicon.
 - EPUB HTML is sanitized; very unusual markup may lose formatting.
+
+## Additional projects
+
+- [`projects/arduino-auto-mouse`](projects/arduino-auto-mouse) - starter Arduino project for a top-mounted ultrasonic USB HID mouse controller with two configurable distance gates and potentiometer-controlled repeat speed.
+
+## Repository tests
+
+- Web app: from `apps/web`, run `npm test`
+- Arduino project consistency checks: from the repo root, run `python3 -m unittest discover -s tests -p 'test_*.py'`
