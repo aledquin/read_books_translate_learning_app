@@ -14,9 +14,9 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def extract_numeric_constant(source: str, name: str) -> str:
+def extract_constant_value(source: str, name: str) -> str:
     match = re.search(
-        rf"const\s+(?:unsigned\s+long|int|float)\s+{re.escape(name)}\s*=\s*([0-9.]+);",
+        rf"const\s+(?:unsigned\s+long|int|float)\s+{re.escape(name)}\s*=\s*([A-Za-z0-9.]+);",
         source,
     )
     if not match:
@@ -37,19 +37,19 @@ class ArduinoAutoMouseDocsConsistencyTest(unittest.TestCase):
         self.assertIn("Mouse.begin();", self.sketch)
 
     def test_readme_pin_mapping_matches_sketch(self) -> None:
-        trigger_pin = extract_numeric_constant(self.sketch, "ULTRASONIC_TRIGGER_PIN")
-        echo_pin = extract_numeric_constant(self.sketch, "ULTRASONIC_ECHO_PIN")
-        potentiometer_pin = extract_numeric_constant(self.sketch, "POTENTIOMETER_PIN")
+        trigger_pin = extract_constant_value(self.sketch, "ULTRASONIC_TRIGGER_PIN")
+        echo_pin = extract_constant_value(self.sketch, "ULTRASONIC_ECHO_PIN")
+        potentiometer_pin = extract_constant_value(self.sketch, "POTENTIOMETER_PIN")
 
         self.assertIn(f"Ultrasonic trigger: `D{trigger_pin}`", self.readme)
         self.assertIn(f"Ultrasonic echo: `D{echo_pin}`", self.readme)
         self.assertIn(f"Speed potentiometer: `{potentiometer_pin}`", self.readme)
 
     def test_project_docs_match_distance_range_and_click_interval(self) -> None:
-        min_distance_cm = extract_numeric_constant(self.sketch, "ACTIVE_MIN_DISTANCE_CM")
-        max_distance_cm = extract_numeric_constant(self.sketch, "ACTIVE_MAX_DISTANCE_CM")
-        min_click_ms = extract_numeric_constant(self.sketch, "MIN_CLICK_INTERVAL_MS")
-        max_click_ms = extract_numeric_constant(self.sketch, "MAX_CLICK_INTERVAL_MS")
+        min_distance_cm = extract_constant_value(self.sketch, "ACTIVE_MIN_DISTANCE_CM")
+        max_distance_cm = extract_constant_value(self.sketch, "ACTIVE_MAX_DISTANCE_CM")
+        min_click_ms = extract_constant_value(self.sketch, "MIN_CLICK_INTERVAL_MS")
+        max_click_ms = extract_constant_value(self.sketch, "MAX_CLICK_INTERVAL_MS")
 
         self.assertIn(f"Minimum trigger distance: `{min_distance_cm.rstrip('0').rstrip('.')} cm`", self.readme)
         self.assertIn(f"Maximum trigger distance: `{max_distance_cm.rstrip('0').rstrip('.')} cm`", self.readme)
@@ -59,10 +59,10 @@ class ArduinoAutoMouseDocsConsistencyTest(unittest.TestCase):
         )
 
     def test_wiring_doc_matches_sketch(self) -> None:
-        trigger_pin = extract_numeric_constant(self.sketch, "ULTRASONIC_TRIGGER_PIN")
-        echo_pin = extract_numeric_constant(self.sketch, "ULTRASONIC_ECHO_PIN")
-        min_distance_cm = extract_numeric_constant(self.sketch, "ACTIVE_MIN_DISTANCE_CM")
-        max_distance_cm = extract_numeric_constant(self.sketch, "ACTIVE_MAX_DISTANCE_CM")
+        trigger_pin = extract_constant_value(self.sketch, "ULTRASONIC_TRIGGER_PIN")
+        echo_pin = extract_constant_value(self.sketch, "ULTRASONIC_ECHO_PIN")
+        min_distance_cm = extract_constant_value(self.sketch, "ACTIVE_MIN_DISTANCE_CM")
+        max_distance_cm = extract_constant_value(self.sketch, "ACTIVE_MAX_DISTANCE_CM")
 
         self.assertIn(f"- Sensor `TRIG` -> `D{trigger_pin}`", self.wiring)
         self.assertIn(f"- Sensor `ECHO` -> `D{echo_pin}`", self.wiring)
